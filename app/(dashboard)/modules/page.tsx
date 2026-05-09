@@ -1,0 +1,351 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useDataStore } from '@/lib/data-store';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, Edit, Trash2, Search, Clock, Wrench, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { StatusBadge } from '@/components/status-badge';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import Link from 'next/link';
+
+const MODULE_STATUSES = {
+  'Design': { icon: Clock, color: 'text-blue-500' },
+  'Development': { icon: Wrench, color: 'text-amber-500' },
+  'Testing': { icon: AlertCircle, color: 'text-orange-500' },
+  'Integrated': { icon: CheckCircle2, color: 'text-green-500' },
+};
+
+export default function ModulesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { modules, subsystems, loading, createModule, updateModule, deleteModule } = useDataStore();
+  const [search, setSearch] = useState('');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  
+  const statusFilterParam = searchParams.get('status');
+  const [statusFilter, setStatusFilter] = useState<string>(statusFilterParam || 'all');
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    subsystem_id: 0,
+  });
+
+  const filtered = modules.filter((m) => {
+    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||
+      m.description?.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || m.status?.name === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const statusCounts = Object.keys(MODULE_STATUSES).reduce((acc, status) => {
+    acc[status] = modules.filter(m => m.status?.name === status).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  async function handleCreate() {
+    if (!formData.name.trim() || !formData.subsystem_id) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    try {
+      await createModule(formData);
+      setFormData({ name: '', description: '', subsystem_id: 0 });
+      setIsCreateOpen(false);
+    } catch {
+      // Error handled
+    }
+  }
+
+  async function handleUpdate() {
+    if (!editingId) return;
+    if (!formData.name.trim() || !formData.subsystem_id) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    try {
+      await updateModule(editingId, formData);
+      setFormData({ name: '', description: '', subsystem_id: 0 });
+      setEditingId(null);
+      setIsEditOpen(false);
+    } catch {
+      // Error handled
+    }
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      await deleteModule(id);
+      toast.success('Module deleted successfully');
+    } catch {
+      toast.error('Failed to delete module');
+    }
+  }
+
+  function openEdit(module: typeof modules[0]) {
+    setEditingId(module.id);
+    setFormData({
+      name: module.name,
+      description: module.description,
+      subsystem_id: module.subsystem_id,
+    });
+    setIsEditOpen(true);
+  }
+
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Modules</h1>
+        <p className="text-muted-foreground mt-2">Manage subsystem modules</p>
+      </div>
+
+      {/* Status Breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Status Overview</CardTitle>
+          <CardDescription>Click to filter by status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <button
+              onClick={() => {
+                setStatusFilter('all');
+                router.push('/modules');
+              }}
+              className={`text-left cursor-pointer transition-transform hover:scale-105 ${statusFilter === 'all' ? 'ring-2 ring-primary rounded-lg' : ''}`}
+            >
+              <Card className={`hover:shadow-lg ${statusFilter === 'all' ? 'bg-accent' : ''}`}>
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-muted-foreground">All Modules</p>
+                  <p className="text-2xl font-bold">{modules.length}</p>
+                </CardContent>
+              </Card>
+            </button>
+
+            {Object.entries(MODULE_STATUSES).map(([statusName, { icon: Icon, color }]) => (
+              <button
+                key={statusName}
+                onClick={() => {
+                  setStatusFilter(statusName);
+                  router.push(`/modules?status=${encodeURIComponent(statusName)}`);
+                }}
+                className={`text-left cursor-pointer transition-transform hover:scale-105 ${statusFilter === statusName ? 'ring-2 ring-primary rounded-lg' : ''}`}
+              >
+                <Card className={`hover:shadow-lg ${statusFilter === statusName ? 'bg-accent' : ''}`}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">{statusName}</p>
+                        <p className="text-2xl font-bold">{statusCounts[statusName] || 0}</p>
+                      </div>
+                      <Icon className={`h-8 w-8 ${color}`} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-4 items-center">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search modules..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Module
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Module</DialogTitle>
+              <DialogDescription>Add a new module</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Module Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Main Engine Module"
+                />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Details"
+                />
+              </div>
+              <div>
+                <Label>Subsystem *</Label>
+                <Select
+                  value={formData.subsystem_id.toString()}
+                  onValueChange={(v) => setFormData({ ...formData, subsystem_id: parseInt(v) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subsystem" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subsystems.map((s) => (
+                      <SelectItem key={s.id} value={s.id.toString()}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 justify-end pt-4">
+                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreate}>Create</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Modules</CardTitle>
+          <CardDescription>Total: {filtered.length}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Subsystem</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      No modules found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((module) => {
+                    const subsystem = subsystems.find((s) => s.id === module.subsystem_id);
+                    return (
+                      <TableRow key={module.id} onClick={() => router.push(`/modules/${module.id}`)}>
+                        <TableCell className="font-medium">{module.name}</TableCell>
+                        <TableCell>{subsystem?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={module.status?.name || 'Unknown'} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            <Link href={`/modules/${module.id}`}>
+                              <Button variant="outline" size="sm">
+                                View
+                              </Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => { e.stopPropagation(); openEdit(module)}}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {/* <ConfirmDialog
+                              title="Delete Module"
+                              description="Are you sure you want to delete this module?"
+                              onConfirm={() => handleDelete(module.id)}
+                            >
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmDialog> */}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Module</DialogTitle>
+            <DialogDescription>Update module details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Subsystem</Label>
+              <Select
+                value={formData.subsystem_id.toString()}
+                onValueChange={(v) => setFormData({ ...formData, subsystem_id: parseInt(v) })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {subsystems.map((s) => (
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 justify-end pt-4">
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdate}>Update</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
