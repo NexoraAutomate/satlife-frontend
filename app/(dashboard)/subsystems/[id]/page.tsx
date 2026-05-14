@@ -28,13 +28,15 @@ export default function SubsystemDetailPage() {
   const subsystemModules = subsystem ? modules.filter((m) => m.subsystem_id === subsystem.id) : [];
   const [statuses, setStatuses] = useState<Models.Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [subsystemHierarchyNames, setSubsystemHierarchyNames] = useState<Models.Hierarchy[]>([]);
+  const [moduleHierarchyNames, setModuleHierarchyNames] = useState<Models.Hierarchy[]>([]);
   const moduleFormFields = [
     {
       name: 'name',
       label: 'Module Name',
-      type: 'text' as const,
+      type: 'select' as const,
       required: true,
-      placeholder: 'Enter module name',
+      options: moduleHierarchyNames.map((hierarchy) => ({ label: hierarchy.name, value: hierarchy.name })),
     },
     {
       name: 'description',
@@ -96,19 +98,36 @@ export default function SubsystemDetailPage() {
     );
   }
  useEffect(() => {
-      const fetchStatuses = async () => {
+      const fetchData = async () => {
         try {
-          const res = await api.statuses.list("modules"); // 👈 filter here
-          setStatuses(res.data);
+          const [statusRes, subsystemHierarchyRes] = await Promise.all([
+            api.statuses.list("modules"),
+            api.hierarchies.list("subsystem"),
+          ]);
+          setStatuses(statusRes.data);
+          setSubsystemHierarchyNames(subsystemHierarchyRes.data);
+
+          if (subsystem) {
+            const parentHierarchyId = subsystemHierarchyRes.data.find(
+              (hierarchy) => hierarchy.name === subsystem.name
+            )?.id;
+
+            if (parentHierarchyId) {
+              const childRes = await api.hierarchies.list("module", parentHierarchyId);
+              setModuleHierarchyNames(childRes.data);
+            } else {
+              setModuleHierarchyNames([]);
+            }
+          }
         } catch (err) {
-          console.error("Failed to fetch statuses", err);
+          console.error("Failed to fetch statuses or hierarchy names", err);
         } finally {
           setLoadingStatuses(false);
         }
       };
 
-      fetchStatuses();
-    }, []);
+      fetchData();
+    }, [subsystem]);
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (

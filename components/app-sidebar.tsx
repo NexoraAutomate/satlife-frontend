@@ -13,8 +13,10 @@ import {
   UserCog,
   LogOut,
   Satellite,
+  Gauge,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -24,11 +26,12 @@ const navItems = [
   { label: "Projects", href: "/projects", icon: Rocket },
   { label: "Systems Hierarchy", href: "/hierarchy", icon: Network },
   { label: "Inventory", href: "/inventory", icon: Package },
-  { label: "maintenanceLogs", href: "/maintenanceLogs", icon: Wrench },
+  { label: "Maintenance", href: "/maintenance", icon: Wrench },
 ];
 
 const adminItems = [
   { label: "Users", href: "/users", icon: UserCog },
+  { label: "Statuses", href: "/statuses", icon: Gauge },
 ];
 
 export function AppSidebar() {
@@ -69,7 +72,7 @@ export function AppSidebar() {
           })}
         </div>
 
-        {user?.role === "Admin" && (
+        {user?.roles?.includes("Admin") && (
           <div className="mt-6">
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40">
               Admin

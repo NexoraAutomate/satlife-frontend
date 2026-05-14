@@ -5,7 +5,7 @@ import { ThemeProvider } from 'next-themes'
 import { AuthProvider } from '@/lib/auth-context'
 import { DataStoreProvider } from '@/lib/data-store'
 import { Toaster } from '@/components/ui/sonner'
-import './globals.css';
+import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
 const geistMono = Geist_Mono({ subsets: ["latin"] });

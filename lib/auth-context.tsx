@@ -23,8 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         setUser(JSON.parse(stored));
-      } catch (error) {
-        console.error('[v0] Failed to parse stored user:', error);
+      } catch {
         localStorage.removeItem('sat-user');
         localStorage.removeItem('token');
       }
@@ -32,67 +31,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    try {
-      const apiUrl = 'http://127.0.0.1:8000/api';
+    const apiUrl = 'http://127.0.0.1:8000/api';
 
-      // Create form-encoded body for login endpoint
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
+    // ✅ Create form-encoded body (IMPORTANT)
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
 
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
-      });
+    const response = await fetch(`${apiUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData, // ✅ NOT JSON.stringify
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Authentication failed');
-      }
-
-      const data = await response.json();
-
-      // Validate token exists
-      if (!data.access_token) {
-        throw new Error('No access token received from server');
-      }
-
-      // Store token in localStorage
-      localStorage.setItem('token', data.access_token);
-
-      // Fetch user info using the token
-      const userResponse = await fetch(`${apiUrl}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${data.access_token}`,
-          // 'ngrok-skip-browser-warning': 'true',
-        },
-      });
-
-      if (!userResponse.ok) {
-        localStorage.removeItem('token');
-        throw new Error('Failed to fetch user info');
-      }
-
-      const userData = await userResponse.json();
-
-      // Transform roles array
-      const userDataWithRole = {
-        ...userData,
-        roles: Array.isArray(userData.roles)
-          ? userData.roles.map((r: any) => (typeof r === 'string' ? r : r.name))
-          : [],
-      };
-
-      setUser(userDataWithRole);
-      localStorage.setItem('sat-user', JSON.stringify(userDataWithRole));
-
-    } catch (error) {
-      console.error('[v0] Login error:', error);
-      throw error instanceof Error ? error : new Error('An unexpected error occurred during login');
+    if (!response.ok) {
+      throw new Error('Authentication failed');
     }
+
+    const data = await response.json();
+
+    // ✅ Store token
+    localStorage.setItem('token', data.access_token);
+
+    // Optional (like your pet project)
+    document.cookie = `token=${data.access_token}; path=/;`;
+
+    // Fetch user info using token
+    const userResponse = await fetch(`${apiUrl}/auth/me/`, {
+      headers: {
+        Authorization: `Bearer ${data.access_token}`,
+      },
+    });
+
+    if (!userResponse.ok) {
+      throw new Error('Failed to fetch user info');
+    }
+
+    const userData = await userResponse.json();
+    const userDataWithRole = {
+      ...userData,
+      roles: userData.roles.map((r: any) => r.name), // 👈 FIX
+    };
+    
+    setUser(userDataWithRole);
+    localStorage.setItem('sat-user', JSON.stringify(userDataWithRole));
+
   }, []);
 
   const logout = useCallback(() => {

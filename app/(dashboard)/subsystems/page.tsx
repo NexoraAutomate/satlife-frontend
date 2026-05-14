@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import Link from 'next/link';
+import * as api from '@/lib/api';
+import type { Hierarchy } from '@/lib/models';
 
 const SUBSYSTEM_STATUSES = {
   'Design': { icon: Clock, color: 'text-blue-500' },
@@ -34,12 +36,55 @@ export default function SubsystemsPage() {
   
   const statusFilterParam = searchParams.get('status');
   const [statusFilter, setStatusFilter] = useState<string>(statusFilterParam || 'all');
+  const [systemHierarchyNames, setSystemHierarchyNames] = useState<Hierarchy[]>([]);
+  const [subsystemHierarchyNames, setSubsystemHierarchyNames] = useState<Hierarchy[]>([]);
   
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     system_id: 0,
   });
+
+  useEffect(() => {
+    const fetchHierarchyNames = async () => {
+      try {
+        const systemsRes = await api.hierarchies.list('system');
+        setSystemHierarchyNames(systemsRes.data);
+      } catch (err) {
+        console.error('Failed to load system hierarchy names', err);
+      }
+    };
+
+    fetchHierarchyNames();
+  }, []);
+
+  useEffect(() => {
+    const fetchSubsystemNames = async () => {
+      if (!formData.system_id) {
+        setSubsystemHierarchyNames([]);
+        return;
+      }
+
+      const selectedSystem = systems.find((s) => s.id === formData.system_id);
+      const parentHierarchyId = selectedSystem
+        ? systemHierarchyNames.find((hierarchy) => hierarchy.name === selectedSystem.name)?.id
+        : undefined;
+
+      if (!parentHierarchyId) {
+        setSubsystemHierarchyNames([]);
+        return;
+      }
+
+      try {
+        const res = await api.hierarchies.list('subsystem', parentHierarchyId);
+        setSubsystemHierarchyNames(res.data);
+      } catch (err) {
+        console.error('Failed to load subsystem hierarchy names', err);
+      }
+    };
+
+    fetchSubsystemNames();
+  }, [formData.system_id, systemHierarchyNames, systems]);
 
   const filtered = subsystems.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -103,6 +148,23 @@ export default function SubsystemsPage() {
     });
     setIsEditOpen(true);
   }
+
+  useEffect(() => {
+    const fetchHierarchyNames = async () => {
+      try {
+        const [systemsRes, subsystemsRes] = await Promise.all([
+          api.hierarchies.list('system'),
+          api.hierarchies.list('subsystem'),
+        ]);
+        setSystemHierarchyNames(systemsRes.data);
+        setSubsystemHierarchyNames(subsystemsRes.data);
+      } catch (err) {
+        console.error('Failed to load hierarchy names', err);
+      }
+    };
+
+    fetchHierarchyNames();
+  }, []);
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
@@ -186,12 +248,22 @@ export default function SubsystemsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Subsystem Name *</Label>
-                <Input
+                <Label>Choose subsystem from hierarchy</Label>
+                <Select
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Thruster Assembly"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, name: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subsystem name" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subsystemHierarchyNames.map((hierarchy) => (
+                      <SelectItem key={hierarchy.id} value={hierarchy.name}>
+                        {hierarchy.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Description</Label>
@@ -205,7 +277,7 @@ export default function SubsystemsPage() {
                 <Label>System *</Label>
                 <Select
                   value={formData.system_id.toString()}
-                  onValueChange={(v) => setFormData({ ...formData, system_id: parseInt(v) })}
+                  onValueChange={(v) => setFormData({ ...formData, system_id: parseInt(v), name: '' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select system" />
@@ -309,11 +381,22 @@ export default function SubsystemsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Name</Label>
-              <Input
+              <Label>Choose subsystem from hierarchy</Label>
+              <Select
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+                onValueChange={(value) => setFormData({ ...formData, name: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subsystem name" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subsystemHierarchyNames.map((hierarchy) => (
+                    <SelectItem key={hierarchy.id} value={hierarchy.name}>
+                      {hierarchy.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Description</Label>

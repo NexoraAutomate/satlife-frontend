@@ -17,11 +17,19 @@ export interface Customer {
   created_at: string
 }
 
+// Role
+export interface Role {
+  id: number
+  name: string
+  description?: string
+}
+
 // Status
 export interface Status {
   id: number
   name: string
   description: string
+  status_type: string
 }
 
 // Order
@@ -49,8 +57,7 @@ export interface Project {
   updated_at: string
   owner?: User
   order?: Order
-  status_name?: string
-  status: Status
+  status?: Status
   systems?: System[]
 }
 
@@ -64,7 +71,6 @@ export interface System {
   created_at: string
   project?: Project
   status?: Status
-  subsystems?: Subsystem[]
 }
 
 // Subsystem
@@ -116,6 +122,16 @@ export interface Component {
   status?: Status
 }
 
+// Hierarchy entry used by the hierarchy management API
+export interface Hierarchy {
+  id: number
+  name: string
+  hierarchy_type: string
+  parent_id?: number | null
+  created_at: string
+  updated_at?: string
+}
+
 // Inventory
 export interface Inventory {
   id: number
@@ -155,6 +171,7 @@ export interface MaintenanceLog {
   id: number
   entity_id: number
   performed_by: number
+  maintenance_type?: string
   notes: string
   performed_at: string
   next_due: string
@@ -162,3 +179,5 @@ export interface MaintenanceLog {
   entity?: Entity
   performed_by_user?: User
 }
+
+

@@ -2,10 +2,7 @@ import axios from "axios";
 import type * as Models from "./models";
 
 const api = axios.create({
-
   baseURL: "http://127.0.0.1:8000/api",
-  
-
 });
 
 api.interceptors.request.use((config) => {
@@ -15,53 +12,28 @@ api.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
-  // Always add ngrok header for all requests
-  // config.headers["ngrok-skip-browser-warning"] = "true";
   return config;
 });
-
-// Add error interceptor to handle 401 errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear stored auth data on 401 - token is invalid
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("sat-user");
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 // Authentication
 export const auth = {
   login: (username: string, password: string) =>
     api.post<{ access_token: string; token_type: string }>("/auth/login", { username, password }),
+  listRoles: () => api.get("/auth/roles"),
+  getMe: () => api.get("/auth/me"),
+  register: (userData: any) => api.post("/auth/register", userData),
+  getRole: (id: number) => api.get(`/auth/roles/${id}`),
+  assignRole: (userId: number, roleId: number) =>
+    api.post("/auth/assign-role", { user_id: userId, role_id: roleId }),
+  removeRole: (userId: number, roleId: number) =>
+    api.delete("/auth/remove-role", { data: { user_id: userId, role_id: roleId } }),
+  deregister: (userId: number) => api.delete(`/auth/deregister/${userId}`),
 };
-
-// export const auth = {
-//   login: (username: string, password: string) =>
-//     api.post(
-//       "/token/",
-//       new URLSearchParams({
-//         username,
-//         password,
-//       }),
-//       {
-//         headers: {
-//           "Content-Type": "application/x-www-form-urlencoded",
-//         },
-//       }
-//     ),
-// };
-
-
 
 // Users
 export const users = {
   list: (skip = 0, limit = 100) => api.get<Models.User[]>("/users/", { params: { skip, limit } }),
+  usersWithRoles: () => api.get("/users/with-roles"),
   get: (id: number) => api.get<Models.User>(`/users/${id}/`),
   create: (data: Partial<Models.User>) => api.post<Models.User>("/users/", data),
   update: (id: number, data: Partial<Models.User>) => api.put<Models.User>(`/users/${id}/`, data),
@@ -145,6 +117,18 @@ export const components = {
   delete: (id: number) => api.delete(`/components/${id}/`),
 };
 
+// Hierarchies
+export const hierarchies = {
+  list: (hierarchy_type?: string, parent_id?: number) =>
+    api.get<Models.Hierarchy[]>("/hierarchies/", {
+      params: { hierarchy_type, parent_id },
+    }),
+  get: (id: number) => api.get<Models.Hierarchy>(`/hierarchies/${id}/`),
+  create: (data: Partial<Models.Hierarchy>) => api.post<Models.Hierarchy>("/hierarchies/", data),
+  update: (id: number, data: Partial<Models.Hierarchy>) => api.put<Models.Hierarchy>(`/hierarchies/${id}/`, data),
+  delete: (id: number) => api.delete(`/hierarchies/${id}/`),
+};
+
 // Inventory
 export const inventory = {
   list: (skip = 0, limit = 100) => api.get<Models.Inventory[]>("/inventory/", { params: { skip, limit } }),
@@ -184,9 +168,9 @@ export const entityStatusHistory = {
 
 // maintenanceLogs Logs
 export const maintenanceLogs = {
-  list: (skip = 0, limit = 100) => api.get<Models.MaintenanceLog[]>("/maintenanceLogs-logs/", { params: { skip, limit } }),
+  list: (skip = 0, limit = 100) => api.get<Models.MaintenanceLog[]>('/maintenanceLogs-logs/', { params: { skip, limit } }),
   get: (id: number) => api.get<Models.MaintenanceLog>(`/maintenanceLogs-logs/${id}/`),
-  create: (data: Partial<Models.MaintenanceLog>) => api.post<Models.MaintenanceLog>("/maintenanceLogs-logs/", data),
+  create: (data: Partial<Models.MaintenanceLog>) => api.post<Models.MaintenanceLog>('/maintenanceLogs-logs/', data),
   update: (id: number, data: Partial<Models.MaintenanceLog>) => api.put<Models.MaintenanceLog>(`/maintenanceLogs-logs/${id}/`, data),
   delete: (id: number) => api.delete(`/maintenanceLogs-logs/${id}/`),
 };

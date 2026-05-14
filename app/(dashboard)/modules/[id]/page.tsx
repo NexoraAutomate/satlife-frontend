@@ -29,14 +29,16 @@ export default function ModuleDetailPage() {
 
   const [statuses, setStatuses] = useState<Models.Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [moduleHierarchyNames, setModuleHierarchyNames] = useState<Models.Hierarchy[]>([]);
+  const [unitHierarchyNames, setUnitHierarchyNames] = useState<Models.Hierarchy[]>([]);
 
   const unitFormFields = [
     {
       name: 'name',
       label: 'Unit Name',
-      type: 'text' as const,
+      type: 'select' as const,
       required: true,
-      placeholder: 'Enter unit name',
+      options: unitHierarchyNames.map((hierarchy) => ({ label: hierarchy.name, value: hierarchy.name })),
     },
     {
       name: 'description',
@@ -87,19 +89,36 @@ export default function ModuleDetailPage() {
     }
   }
     useEffect(() => {
-        const fetchStatuses = async () => {
+        const fetchData = async () => {
           try {
-            const res = await api.statuses.list("modules"); // 👈 filter here
-            setStatuses(res.data);
+            const [statusRes, moduleHierarchyRes] = await Promise.all([
+              api.statuses.list("units"),
+              api.hierarchies.list("module"),
+            ]);
+            setStatuses(statusRes.data);
+            setModuleHierarchyNames(moduleHierarchyRes.data);
+
+            if (module) {
+              const parentHierarchyId = moduleHierarchyRes.data.find(
+                (hierarchy) => hierarchy.name === module.name
+              )?.id;
+
+              if (parentHierarchyId) {
+                const childRes = await api.hierarchies.list("unit", parentHierarchyId);
+                setUnitHierarchyNames(childRes.data);
+              } else {
+                setUnitHierarchyNames([]);
+              }
+            }
           } catch (err) {
-            console.error("Failed to fetch statuses", err);
+            console.error("Failed to fetch statuses or hierarchy names", err);
           } finally {
             setLoadingStatuses(false);
           }
         };
   
-        fetchStatuses();
-      }, []);
+        fetchData();
+      }, [module]);
     if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   if (!module) {
