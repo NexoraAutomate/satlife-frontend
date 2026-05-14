@@ -176,6 +176,43 @@ export interface UpdateMaintenanceDeliveryPayload {
   received_by?: string;
 }
 
+export interface EntityLookupNode {
+  entity_type: string;
+  entity_id: number;
+  label: string;
+  depth?: number;
+  children?: EntityLookupNode[];
+}
+
+export interface EntityLookupResponse {
+  matched_entity_type: string;
+  matched_entity_id: number;
+  matched_label: string;
+  ancestors: EntityLookupNode[];
+  descendants: EntityLookupNode[];
+  project_id: number;
+  project_name: string;
+  order_id: number;
+  order_ref: string;
+  customer_id: number;
+  customer_name: string;
+}
+
+export interface SuspectChildrenPayload {
+  reported_entity_type: string;
+  reported_entity_id: number;
+  fault_type: string;
+  fault_description?: string;
+}
+
+export interface ConfirmFaultPayload {
+  confirmed_entity_type: string;
+  confirmed_entity_id: number;
+  fault_type: string;
+  fault_description: string;
+  parent_faulty_entity_id: number;
+}
+
 // API Response types
 export interface MaintenanceCaseResponse {
   data: MaintenanceCase | MaintenanceCase[];

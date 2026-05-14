@@ -17,11 +17,17 @@ api.interceptors.request.use((config) => {
 
 // Maintenance Cases
 export const maintenanceCases = {
-  list: (skip = 0, limit = 100) =>api.get<Types.MaintenanceCase[]>('/maintenance-cases/', { params: { skip, limit } }),
+  list: (skip = 0, limit = 100) => api.get<Types.MaintenanceCase[]>('/maintenance-cases/', { params: { skip, limit } }),
   get: (id: number) => api.get<Types.MaintenanceCase>(`/maintenance-cases/${id}/`),
   create: (data: Types.CreateMaintenanceCasePayload) => api.post<Types.MaintenanceCase>('/maintenance-cases/', data),
-  update: (id: number, data: Types.UpdateMaintenanceCasePayload) =>api.put<Types.MaintenanceCase>(`/maintenance-cases/${id}/`, data),
+  update: (id: number, data: Types.UpdateMaintenanceCasePayload) => api.put<Types.MaintenanceCase>(`/maintenance-cases/${id}/`, data),
   delete: (id: number) => api.delete(`/maintenance-cases/${id}/`),
+  lookupEntityByPartNumber: (partNumber: string) =>
+    api.get<Types.EntityLookupResponse>(`/entities/lookup-by-PN/${encodeURIComponent(partNumber)}/`),
+  suspectChildren: (caseId: number, data: Types.SuspectChildrenPayload) =>
+    api.post(`/maintenance-cases/${caseId}/suspect-children/`, data),
+  confirmFault: (caseId: number, data: Types.ConfirmFaultPayload) =>
+    api.post(`/maintenance-cases/${caseId}/confirm-fault/`, data),
 };
 
 // Faulty Entities

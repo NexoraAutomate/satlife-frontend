@@ -110,6 +110,9 @@ interface DataStoreContextType {
   createMaintenanceCase: (data: MaintenanceTypes.CreateMaintenanceCasePayload) => Promise<MaintenanceTypes.MaintenanceCase>;
   updateMaintenanceCase: (id: number, data: MaintenanceTypes.UpdateMaintenanceCasePayload) => Promise<MaintenanceTypes.MaintenanceCase>;
   deleteMaintenanceCase: (id: number) => Promise<void>;
+  lookupEntityByPartNumber: (partNumber: string) => Promise<MaintenanceTypes.EntityLookupResponse>;
+  suspectChildren: (caseId: number, data: MaintenanceTypes.SuspectChildrenPayload) => Promise<any>;
+  confirmFault: (caseId: number, data: MaintenanceTypes.ConfirmFaultPayload) => Promise<any>;
 
   // Faulty Entities
   getFaultyEntity: (id: number) => Promise<MaintenanceTypes.FaultyEntity>;
@@ -836,6 +839,38 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const lookupEntityByPartNumber = async (partNumber: string) => {
+    try {
+      const res = await maintenanceApi.maintenanceCases.lookupEntityByPartNumber(partNumber);
+      return res.data;
+    } catch (err) {
+      toast.error('Failed to lookup entity by part number');
+      throw err;
+    }
+  };
+
+  const suspectChildren = async (caseId: number, data: MaintenanceTypes.SuspectChildrenPayload) => {
+    try {
+      const res = await maintenanceApi.maintenanceCases.suspectChildren(caseId, data);
+      toast.success('Suspect children generated successfully');
+      return res.data;
+    } catch (err) {
+      toast.error('Failed to create suspect children');
+      throw err;
+    }
+  };
+
+  const confirmFault = async (caseId: number, data: MaintenanceTypes.ConfirmFaultPayload) => {
+    try {
+      const res = await maintenanceApi.maintenanceCases.confirmFault(caseId, data);
+      toast.success('Fault confirmed successfully');
+      return res.data;
+    } catch (err) {
+      toast.error('Failed to confirm fault');
+      throw err;
+    }
+  };
+
   // Faulty Entities
   const getFaultyEntity = async (id: number) => {
     try {
@@ -1080,6 +1115,9 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     createMaintenanceCase,
     updateMaintenanceCase,
     deleteMaintenanceCase,
+    lookupEntityByPartNumber,
+    suspectChildren,
+    confirmFault,
     getFaultyEntity,
     createFaultyEntity,
     updateFaultyEntity,
