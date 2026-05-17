@@ -15,8 +15,8 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import * as maintenanceApi from '@/services/api/maintenance';
-import * as MaintenanceTypes from '@/types/maintenance';
+import * as maintenanceApi from '@/lib/api';
+import * as MaintenanceTypes from '@/lib/models';
 import { MaintenanceMiniDashboard } from '@/components/maintenance/MaintenanceMiniDashboard';
 import { MaintenanceLookupDialog } from '@/components/maintenance/MaintenanceLookupDialog';
 import { MaintenanceCaseDialog } from '@/components/maintenance/MaintenanceCaseDialog';
@@ -24,22 +24,10 @@ import { MaintenanceTable } from '@/components/maintenance/MaintenanceTable';
 
 export default function MaintenancePage() {
   const searchParams = useSearchParams();
-  const {
-    maintenanceCases,
-    projects,
-    loading,
-    createMaintenanceCase,
-    updateMaintenanceCase,
-    deleteMaintenanceCase,
-    lookupEntityByPartNumber,
-    suspectChildren,
-    confirmFault,
-  } = useDataStore();
+  const {maintenanceCases,projects,loading,createMaintenanceCase,updateMaintenanceCase,deleteMaintenanceCase,lookupEntityByPartNumber,suspectChildren,confirmFault} = useDataStore();
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>(
-    searchParams.get('status') || 'all'
-  );
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -54,6 +42,8 @@ export default function MaintenancePage() {
   const [faultyEntities, setFaultyEntities] = useState<MaintenanceTypes.FaultyEntity[]>([]);
   const [maintenanceActions, setMaintenanceActions] = useState<MaintenanceTypes.MaintenanceAction[]>([]);
   const [maintenanceDeliveries, setMaintenanceDeliveries] = useState<MaintenanceTypes.MaintenanceDelivery[]>([]);
+  // const [statuses, setStatuses] = useState<Models.Status[]>([]);
+
 
   // Load maintenance cases on mount
   useEffect(() => {
@@ -64,6 +54,7 @@ export default function MaintenancePage() {
     try {
       setIsLoadingData(true);
       const res = await maintenanceApi.maintenanceCases.list(0, 100);
+      console.log('Loaded maintenance cases:', res.data);
       // Note: This data would typically be managed by the data store
       // For now, we're managing it locally in the component
     } catch (err) {
@@ -78,13 +69,19 @@ export default function MaintenancePage() {
     const matchesSearch =
       c.case_number.toLowerCase().includes(search.toLowerCase()) ||
       c.description.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
-    const matchesProject = projectFilter === 'all' || c.project_id.toString() === projectFilter;
+    
+      // console.log('filtered Case description:', c.description);
+      // console.log('filtered Case description:', c.case_number);
+      const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+      // console.log('filtered Case matchesStatus', matchesStatus);
+      const matchesProject = projectFilter === 'all' || c.project_id.toString() === projectFilter;
+      // console.log('filtered Case matchesProject:',matchesProject);
     return matchesSearch && matchesStatus && matchesProject;
   });
 
   const handleCreate = async (data: MaintenanceTypes.CreateMaintenanceCasePayload) => {
     try {
+      console.log('Creating case with data:', data);
       await createMaintenanceCase(data);
       await loadMaintenanceCases();
     } catch (err) {
@@ -140,8 +137,9 @@ export default function MaintenancePage() {
       project_id: lookupResponse.project_id,
       description: `Maintenance case for ${lookupResponse.matched_label}`,
       status: MaintenanceTypes.CaseStatus.Open,
+      
     };
-
+    console.log('Creating case with payload:', payload)
     try {
       const created = await createMaintenanceCase(payload);
       setLookupCaseId(created.id);
@@ -156,6 +154,11 @@ export default function MaintenancePage() {
     if (!lookupResponse || !lookupCaseId) return;
 
     try {
+      console.log('--------------------------------------------------Starting suspect children workflow with:', {
+        caseId: lookupCaseId,
+        reported_entity_type: lookupResponse.matched_entity_type,
+        reported_entity_id: lookupResponse.matched_entity_id,
+      });
       await suspectChildren(lookupCaseId, {
         reported_entity_type: lookupResponse.matched_entity_type,
         reported_entity_id: lookupResponse.matched_entity_id,
@@ -199,6 +202,11 @@ export default function MaintenancePage() {
   };
 
   const handleEdit = (caseItem: MaintenanceTypes.MaintenanceCase) => {
+    setEditingCase(caseItem);
+    setIsEditOpen(true);
+  };
+  
+  const handleView = (caseItem: MaintenanceTypes.MaintenanceCase) => {
     setEditingCase(caseItem);
     setIsEditOpen(true);
   };
@@ -344,6 +352,7 @@ export default function MaintenancePage() {
         cases={filtered}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onView = {handleView}
         isLoading={isLoadingData}
         getFaultyEntities={getFaultyEntities}
         getMaintenanceActions={getMaintenanceActions}

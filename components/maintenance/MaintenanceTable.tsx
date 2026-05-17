@@ -15,7 +15,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import type { MaintenanceCase, FaultyEntity, MaintenanceAction, MaintenanceDelivery } from '@/types/maintenance';
+import type { MaintenanceCase, FaultyEntity, MaintenanceAction, MaintenanceDelivery } from '@/lib/models';
 import { FaultyEntityTable } from './FaultyEntityTable';
 import { MaintenanceActionTable } from './MaintenanceActionTable';
 import { MaintenanceDeliveryTable } from './MaintenanceDeliveryTable';
@@ -301,8 +301,8 @@ export function MaintenanceTable({
         }
         title="Delete Maintenance Case"
         description="Are you sure you want to delete this maintenance case? This action cannot be undone."
-        actionLabel="Delete"
-        variant="destructive"
+        // actionLabel="Delete"
+        // variant="destructive"
         onConfirm={confirmDelete}
       />
     </>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { EntityLookupNode, EntityLookupResponse } from '@/types/maintenance';
+import type { EntityLookupNode, EntityLookupResponse } from '@/lib/models';
 
 interface EntityLookupTreeProps {
   response: EntityLookupResponse;
@@ -44,7 +44,7 @@ function TreeNode({
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            className="flex h-3 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
           >
             {expanded ? (
               <ChevronDown className="h-4 w-4" />

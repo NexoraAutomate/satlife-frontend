@@ -44,7 +44,8 @@ export default function ProjectsPage(){
   const filtered = projects.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.description.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || p.status_name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || p.status?.name === statusFilter;
+    console.log('Filtering project:', p.name, 'Matches Search:', matchesSearch, 'Matches Status:', matchesStatus);
     return matchesSearch && matchesStatus;
   });
 
@@ -181,7 +182,7 @@ export default function ProjectsPage(){
             </button>
             {/* {['Initiation', 'Planning', 'Execution', 'Monitoring', 'Completed', 'On Hold'] */}
             {statusNames.map((s) => {
-              const count = projects.filter(p => p.status_name === s).length;
+              const count = projects.filter(p => p.status?.name === s).length;
               console.log(`Status: ${s}, Count: ${count}`, projects);
               const icons: Record<string, any> = {
                 'Initiation': Clock,
