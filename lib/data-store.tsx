@@ -112,7 +112,7 @@ interface DataStoreContextType {
   updateMaintenanceCase: (id: number, data: MaintenanceTypes.UpdateMaintenanceCasePayload) => Promise<MaintenanceTypes.MaintenanceCase>;
   deleteMaintenanceCase: (id: number) => Promise<void>;
   lookupEntityByPartNumber: (partNumber: string) => Promise<MaintenanceTypes.EntityLookupResponse>;
-  suspectChildren: (caseId: number, data: MaintenanceTypes.SuspectChildrenPayload) => Promise<any>;
+  suspectChildren: (case_Id: number, data: MaintenanceTypes.SuspectChildrenPayload) => Promise<any>;
   confirmFault: (caseId: number, data: MaintenanceTypes.ConfirmFaultPayload) => Promise<any>;
 
   // Faulty Entities
@@ -890,6 +890,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
 
   const suspectChildren = async (caseId: number, data: MaintenanceTypes.SuspectChildrenPayload) => {
     try {
+      console.log("Suspecting children with data:", data);
       const res = await api.maintenanceCases.suspectChildren(caseId, data);
       toast.success('Suspect children generated successfully');
       return res.data;

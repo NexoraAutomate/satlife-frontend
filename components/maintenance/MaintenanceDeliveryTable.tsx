@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { StatusBadge } from '@/components/status-badge';
-import type { MaintenanceDelivery } from '@/types/maintenance';
+import type { MaintenanceDelivery } from '@/lib/models';
 
 interface MaintenanceDeliveryTableProps {
   deliveries: MaintenanceDelivery[];

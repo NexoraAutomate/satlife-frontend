@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useDataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, RefreshCw } from 'lucide-react';
+import { Plus, Search, RefreshCw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import * as maintenanceApi from '@/lib/api';
 import * as MaintenanceTypes from '@/lib/models';
@@ -23,6 +24,7 @@ import { MaintenanceCaseDialog } from '@/components/maintenance/MaintenanceCaseD
 import { MaintenanceTable } from '@/components/maintenance/MaintenanceTable';
 
 export default function MaintenancePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const {maintenanceCases,projects,loading,createMaintenanceCase,updateMaintenanceCase,deleteMaintenanceCase,lookupEntityByPartNumber,suspectChildren,confirmFault} = useDataStore();
 
@@ -137,12 +139,15 @@ export default function MaintenancePage() {
       project_id: lookupResponse.project_id,
       description: `Maintenance case for ${lookupResponse.matched_label}`,
       status: MaintenanceTypes.CaseStatus.Open,
-      
+      entity_id: lookupResponse.matched_entity_id,
+      entity_type: lookupResponse.matched_entity_type.toLowerCase(),
+      part_number:lookupResponse.matched_label,
     };
     console.log('Creating case with payload:', payload)
     try {
       const created = await createMaintenanceCase(payload);
       setLookupCaseId(created.id);
+      console.log(lookupCaseId);
       await loadMaintenanceCases();
       toast.success(`Created maintenance case #${created.id}`);
     } catch (err) {
@@ -154,16 +159,17 @@ export default function MaintenancePage() {
     if (!lookupResponse || !lookupCaseId) return;
 
     try {
-      console.log('--------------------------------------------------Starting suspect children workflow with:', {
+      console.log('Starting suspect children workflow with:', {
         caseId: lookupCaseId,
-        reported_entity_type: lookupResponse.matched_entity_type,
-        reported_entity_id: lookupResponse.matched_entity_id,
+        entity_type: lookupResponse.matched_entity_type.toLowerCase(),
+        entity_id: lookupResponse.matched_entity_id,
       });
       await suspectChildren(lookupCaseId, {
-        reported_entity_type: lookupResponse.matched_entity_type,
-        reported_entity_id: lookupResponse.matched_entity_id,
+        entity_type: lookupResponse.matched_entity_type.toLowerCase(),
+        entity_id: lookupResponse.matched_entity_id,
         fault_type: 'suspected',
         fault_description: `Suspected issue on ${lookupResponse.matched_label}`,
+        entity_name: lookupResponse.matched_label
       });
       toast.success('Children suspicion workflow started.');
     } catch (err) {
@@ -176,7 +182,7 @@ export default function MaintenancePage() {
 
     try {
       await confirmFault(lookupCaseId, {
-        confirmed_entity_type: node.entity_type,
+        confirmed_entity_type: node.entity_type.toLowerCase(),
         confirmed_entity_id: node.entity_id,
         fault_type: 'confirmed',
         fault_description: `Fault confirmed for ${node.label}`,
@@ -207,8 +213,7 @@ export default function MaintenancePage() {
   };
   
   const handleView = (caseItem: MaintenanceTypes.MaintenanceCase) => {
-    setEditingCase(caseItem);
-    setIsEditOpen(true);
+    router.push(`/dashboard/maintenance/cases/${caseItem.id}`);
   };
 
   const handleStatusFilter = (status: string) => {
@@ -255,9 +260,9 @@ export default function MaintenancePage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             Maintenance Management
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -352,7 +357,7 @@ export default function MaintenancePage() {
         cases={filtered}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onView = {handleView}
+        onView={handleView}
         isLoading={isLoadingData}
         getFaultyEntities={getFaultyEntities}
         getMaintenanceActions={getMaintenanceActions}

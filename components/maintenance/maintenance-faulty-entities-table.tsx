@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
-import { Eye, Trash2 } from 'lucide-react';
+import { useMemo } from 'react';
+import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -14,35 +15,36 @@ import {
 import { StatusBadge } from '@/components/status-badge';
 import type { FaultyEntity } from '@/lib/models';
 
-interface FaultyEntityTableProps {
+interface MaintenanceFaultyEntitiesTableProps {
   entities: FaultyEntity[];
+  selectedIds: number[];
+  onToggleSelect: (entityId: number) => void;
+  onToggleSelectAll: () => void;
   onView?: (entity: FaultyEntity) => void;
-  onResolve?: (entity: FaultyEntity) => void;
-  onDelete?: (entity: FaultyEntity) => void;
+  onConfirmFaulty?: (entity: FaultyEntity) => void;
   isLoading?: boolean;
 }
 
-export function FaultyEntityTable({
+export function MaintenanceFaultyEntitiesTable({
   entities,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
   onView,
-  onResolve,
-  onDelete,
+  onConfirmFaulty,
   isLoading = false,
-}: FaultyEntityTableProps) {
+}: MaintenanceFaultyEntitiesTableProps) {
+  const allSelected = useMemo(
+    () => entities.length > 0 && selectedIds.length === entities.length,
+    [entities.length, selectedIds]
+  );
+
   if (isLoading) {
-    return (
-      <div className="text-sm text-muted-foreground py-4">
-        Loading faulty entities...
-      </div>
-    );
+    return <div className="text-sm text-muted-foreground py-4">Loading entities...</div>;
   }
 
   if (!entities || entities.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground py-4">
-        No faulty entities found.
-      </div>
-    );
+    return <div className="text-sm text-muted-foreground py-4">No suspected or confirmed entities found.</div>;
   }
 
   return (
@@ -50,27 +52,32 @@ export function FaultyEntityTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead>Entity Type</TableHead>
-            <TableHead>Entity ID</TableHead>
-            <TableHead>Fault Type</TableHead>
+            <TableHead className="w-10">
+              <Checkbox checked={allSelected} onCheckedChange={onToggleSelectAll} />
+            </TableHead>
+            <TableHead>Part Number</TableHead>
+            <TableHead>Description</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Identified At</TableHead>
-            <TableHead className="w-24">Actions</TableHead>
+            <TableHead>Detected</TableHead>
+            <TableHead className="w-28">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {entities.map((entity) => (
             <TableRow key={entity.id} className="hover:bg-muted/50">
-              <TableCell className="text-sm">{entity.entity_type}</TableCell>
-              <TableCell className="text-sm font-medium">
-                {entity.entity_id}
+              <TableCell>
+                <Checkbox
+                  checked={selectedIds.includes(entity.id)}
+                  onCheckedChange={() => onToggleSelect(entity.id)}
+                />
               </TableCell>
-              <TableCell className="text-sm">{entity.fault_type}</TableCell>
+              <TableCell className="font-medium">{entity.part_number}</TableCell>
+              <TableCell>{entity.entity_name || entity.part_number || entity.serial_number || 'No details'}</TableCell>
               <TableCell>
                 <StatusBadge status={entity.status} />
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
-                {new Date(entity.identified_at).toLocaleDateString()}
+                {entity.identified_at ? new Date(entity.identified_at).toLocaleDateString() : 'Unknown'}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
@@ -84,24 +91,14 @@ export function FaultyEntityTable({
                       <Eye className="h-4 w-4" />
                     </Button>
                   )}
-                  {onResolve && entity.status !== 'resolved' && (
+                  {onConfirmFaulty && entity.status !== 'confirmed_faulty' && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onResolve(entity)}
+                      onClick={() => onConfirmFaulty(entity)}
                       className="h-8 w-8 p-0"
                     >
-                      <StatusBadge status="pass" />
-                    </Button>
-                  )}
-                  {onDelete && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(entity)}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
+                      ✓
                     </Button>
                   )}
                 </div>

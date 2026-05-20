@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EntityLookupTree } from './EntityLookupTree';
-import type { EntityLookupResponse } from '@/types/maintenance';
+import type { EntityLookupNode, EntityLookupResponse } from '@/lib/models';
 
 interface MaintenanceLookupDialogProps {
   isOpen: boolean;
@@ -20,7 +20,7 @@ interface MaintenanceLookupDialogProps {
   lookupLoading?: boolean;
   lookupError?: string | null;
   onSuspectChildren?: () => Promise<void>;
-  onConfirmFault?: (node: Parameters<typeof EntityLookupTree>[0]['onConfirmFault'] extends ((node: infer N) => any) ? N : never) => Promise<void>;
+  onConfirmFault?: (node: EntityLookupNode) => Promise<void>;
 }
 
 export function MaintenanceLookupDialog({
@@ -69,9 +69,13 @@ export function MaintenanceLookupDialog({
               </Button>
             ) : null}
             {lookupResponse && caseId ? (
-              <Button onClick={onSuspectChildren} variant="secondary">
-                Suspect Children
-              </Button>
+              <>
+                {console.log("Condition TRUE", lookupResponse, caseId)}
+                
+                <Button onClick={onSuspectChildren} variant="secondary">
+                  Suspect Children
+                </Button>
+              </>
             ) : null}
           </div>
           {lookupError ? (

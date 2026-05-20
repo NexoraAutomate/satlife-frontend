@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { StatusBadge } from '@/components/status-badge';
-import type { MaintenanceAction } from '@/types/maintenance';
+import type { MaintenanceAction } from '@/lib/models';
 
 interface MaintenanceActionTableProps {
   actions: MaintenanceAction[];

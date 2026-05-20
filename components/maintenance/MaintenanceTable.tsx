@@ -156,7 +156,7 @@ export function MaintenanceTable({
             <TableRow className="bg-muted/50">
               <TableHead className="w-12"></TableHead>
               <TableHead>Case Number</TableHead>
-              <TableHead>Project ID</TableHead>
+              <TableHead>Project</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Reported At</TableHead>

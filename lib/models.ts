@@ -201,7 +201,11 @@ export enum FaultType {
 
 export enum FaultyEntityStatus {
   Identified = 'identified',
+  Suspected = 'suspected',
+  UnderInspection = 'under_inspection',
   ConfirmedFaulty = 'confirmed_faulty',
+  Healthy = 'healthy',
+  FalsePositive = 'false_positive',
   NoFaultFound = 'no_fault_found',
   Resolved = 'resolved',
 }
@@ -258,7 +262,11 @@ export interface MaintenanceCase {
   project_id: number;
   description: string;
   status: CaseStatus;
+  entity_id: number;
+  entity_type: EntityType;
+  part_number:string;
   reported_at: string;
+  reported_by?: string;
   resolved_at?: string;
   resolution_notes?: string;
   created_at: string;
@@ -270,14 +278,24 @@ export interface MaintenanceCase {
 export interface FaultyEntity {
   id: number;
   case_id: number;
+  identified_by: number;
+
   entity_type: EntityType;
   entity_id: number;
   fault_type: FaultType;
+  fault_description?: string;
   status: FaultyEntityStatus;
-  identified_at: string;
-  confirmed_at?: string;
   resolution_type?: ResolutionType;
+  identified_at: string;
   resolved_at?: string;
+
+  entity_name?: string;
+  part_number?: string;
+  serial_number?: string;
+  parent_faulty_entity_id?: number;
+  parent_entity_name?: string;
+  confirmed_at?: string;
+  investigation_notes?: string;
   created_at: string;
   updated_at: string;
   case?: MaintenanceCase;
@@ -315,6 +333,9 @@ export interface CreateMaintenanceCasePayload {
   project_id: number;
   description: string;
   status: CaseStatus;
+  entity_id: number;
+  entity_type: string;
+  part_number:string;
 }
 
 export interface UpdateMaintenanceCasePayload {
@@ -381,10 +402,11 @@ export interface EntityLookupResponse {
 }
 
 export interface SuspectChildrenPayload {
-  reported_entity_type: string;
-  reported_entity_id: number;
+  entity_type: string;
+  entity_id: number;
   fault_type: string;
   fault_description?: string;
+  entity_name: string;
 }
 
 export interface ConfirmFaultPayload {

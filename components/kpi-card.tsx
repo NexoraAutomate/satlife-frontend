@@ -34,7 +34,7 @@ export function KPICard({ title, value, change, icon: Icon, accentColor }: KPICa
   const isPositive = change >= 0;
 
   return (
-    <Card className={cn("border-l-4 shadow-sm", accentStyles[accentColor])}>
+    <Card className={cn("border-l-4 h-full shadow-sm", accentStyles[accentColor])}>
       <CardContent className="flex items-center justify-between p-5">
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
@@ -56,7 +56,7 @@ export function KPICard({ title, value, change, icon: Icon, accentColor }: KPICa
           </div>
         </div>
         <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", iconBgStyles[accentColor])}>
-          <Icon className="h-6 w-6" />
+          <Icon className="h-4 w-4" />
         </div>
       </CardContent>
     </Card>

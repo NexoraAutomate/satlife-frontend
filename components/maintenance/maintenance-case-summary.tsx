@@ -1,0 +1,64 @@
+'use client';
+
+import { Package } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { KPICard } from '@/components/kpi-card';
+import { EntityStatusBadge } from './entity-status-badge';
+import type { MaintenanceCase } from '@/lib/models';
+
+interface MaintenanceCaseSummaryProps {
+  maintenanceCase: MaintenanceCase;
+  projectName?: string;
+  counts: {
+    suspected: number;
+    confirmed: number;
+    healthy: number;
+    resolved: number;
+  };
+}
+
+export function MaintenanceCaseSummary({ maintenanceCase, projectName, counts }: MaintenanceCaseSummaryProps) {
+  return (
+    <div className="space-y-6">
+      <Card className="p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Maintenance Case Investigation</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{maintenanceCase.case_number}</h1>
+            <p className="text-sm text-muted-foreground max-w-2xl">{maintenanceCase.description}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <EntityStatusBadge status={maintenanceCase.status} className="rounded-full px-3 py-1 text-xs" />
+            <span className="text-sm text-muted-foreground">Reported {new Date(maintenanceCase.reported_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+
+        <div className="grid gap-4 pt-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Project</p>
+            <p className="font-semibold">{projectName || maintenanceCase.project?.name || 'Unknown'}</p>
+          </div>
+          <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Reported By</p>
+            <p className="font-semibold">{maintenanceCase.reported_by || 'Unknown'}</p>
+          </div>
+          <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Resolution Notes</p>
+            <p className="text-sm text-muted-foreground wrap-break-word">{maintenanceCase.resolution_notes || 'No notes yet'}</p>
+          </div>
+          <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Resolved At</p>
+            <p className="font-semibold">{maintenanceCase.resolved_at ? new Date(maintenanceCase.resolved_at).toLocaleDateString() : 'Pending'}</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <KPICard title="Suspected" value={counts.suspected} change={0} icon={Package} accentColor="amber" />
+        <KPICard title="Confirmed Faulty" value={counts.confirmed} change={0} icon={Package} accentColor="red" />
+        <KPICard title="Healthy" value={counts.healthy} change={0} icon={Package} accentColor="green" />
+        <KPICard title="Resolved" value={counts.resolved} change={0} icon={Package} accentColor="slate" />
+      </div>
+    </div>
+  );
+}
