@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EntityLookupTree } from './EntityLookupTree';
-import type { EntityLookupNode, EntityLookupResponse } from '@/lib/models';
+import type { EntityLookupNode, lookUpResponse } from '@/lib/models';
 
 interface MaintenanceLookupDialogProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ interface MaintenanceLookupDialogProps {
   setPartNumber: (value: string) => void;
   onLookup: (partNumber: string) => Promise<void>;
   onCreateCase: () => Promise<void>;
-  lookupResponse: EntityLookupResponse | null;
+  lookupResponse: lookUpResponse | null;
   caseId?: number | null;
   lookupLoading?: boolean;
   lookupError?: string | null;
@@ -38,8 +38,8 @@ export function MaintenanceLookupDialog({
   onConfirmFault,
 }: MaintenanceLookupDialogProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+    <Dialog open={isOpen} onOpenChange={onOpenChange} >
+      <DialogContent className={`sm:max-w-4xl ${lookupResponse? "lg:max-w-9/12" : "lg:max-w-4xl"} border-8`}>
         <DialogHeader>
           <DialogTitle>Maintenance Entity Lookup</DialogTitle>
         </DialogHeader>

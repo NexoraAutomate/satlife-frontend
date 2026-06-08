@@ -36,7 +36,7 @@ export default function MaintenancePage() {
   const [isLookupOpen, setIsLookupOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<MaintenanceTypes.MaintenanceCase | null>(null);
   const [partNumber, setPartNumber] = useState('');
-  const [lookupResponse, setLookupResponse] = useState<MaintenanceTypes.EntityLookupResponse | null>(null);
+  const [lookupResponses, setLookupResponse] = useState<MaintenanceTypes.lookUpResponse | null>(null);
   const [lookupCaseId, setLookupCaseId] = useState<number | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -120,7 +120,9 @@ export default function MaintenancePage() {
 
     try {
       const response = await lookupEntityByPartNumber(partNumberValue);
+      console.log('Lookup response:', response);
       setLookupResponse(response);
+      console.log('Lookup response:', lookupResponses);
     } catch (err) {
       console.error('Lookup failed:', err);
       setLookupError('No entity found for that part number.');
@@ -130,18 +132,18 @@ export default function MaintenancePage() {
   };
 
   const handleCreateCaseFromLookup = async () => {
-    if (!lookupResponse) {
+    if (!lookupResponses) {
       toast.error('No lookup result available to create a case.');
       return;
     }
 
     const payload: MaintenanceTypes.CreateMaintenanceCasePayload = {
-      project_id: lookupResponse.project_id,
-      description: `Maintenance case for ${lookupResponse.matched_label}`,
+      project_id: lookupResponses.project_id,
+      description: `Maintenance case for ${lookupResponses.matched_label}`,
       status: MaintenanceTypes.CaseStatus.Open,
-      entity_id: lookupResponse.matched_entity_id,
-      entity_type: lookupResponse.matched_entity_type.toLowerCase(),
-      part_number:lookupResponse.matched_label,
+      entity_id: lookupResponses.matched_entity_id,
+      entity_type: lookupResponses.matched_entity_type.toLowerCase(),
+      part_number:lookupResponses.matched_entity_PartNumber
     };
     console.log('Creating case with payload:', payload)
     try {
@@ -156,20 +158,26 @@ export default function MaintenancePage() {
   };
 
   const handleSuspectChildren = async () => {
-    if (!lookupResponse || !lookupCaseId) return;
+    if (!lookupResponses || !lookupCaseId) return;
+        console.log('Lookup response:', lookupResponses);
 
+        console.log('serial_number:', lookupResponses.matched_entity_serialNumber)
+        console.log('part_number:', lookupResponses.matched_entity_PartNumber)
     try {
       console.log('Starting suspect children workflow with:', {
         caseId: lookupCaseId,
-        entity_type: lookupResponse.matched_entity_type.toLowerCase(),
-        entity_id: lookupResponse.matched_entity_id,
+        entity_type: lookupResponses.matched_entity_type.toLowerCase(),
+        entity_id: lookupResponses.matched_entity_id,
       });
       await suspectChildren(lookupCaseId, {
-        entity_type: lookupResponse.matched_entity_type.toLowerCase(),
-        entity_id: lookupResponse.matched_entity_id,
-        fault_type: 'suspected',
-        fault_description: `Suspected issue on ${lookupResponse.matched_label}`,
-        entity_name: lookupResponse.matched_label
+        entity_type: lookupResponses.matched_entity_type.toLowerCase(),
+        entity_id: lookupResponses.matched_entity_id,
+        fault_type: "suspected",
+        fault_description: `Suspected issue on ${lookupResponses.matched_label}`,
+        entity_name: lookupResponses.matched_label,
+        serial_number: lookupResponses.matched_entity_serialNumber,
+        part_number: lookupResponses.matched_entity_PartNumber,
+
       });
       toast.success('Children suspicion workflow started.');
     } catch (err) {
@@ -178,7 +186,7 @@ export default function MaintenancePage() {
   };
 
   const handleConfirmFault = async (node: MaintenanceTypes.EntityLookupNode) => {
-    if (!lookupResponse || !lookupCaseId) return;
+    if (!lookupResponses || !lookupCaseId) return;
 
     try {
       await confirmFault(lookupCaseId, {
@@ -186,7 +194,7 @@ export default function MaintenancePage() {
         confirmed_entity_id: node.entity_id,
         fault_type: 'confirmed',
         fault_description: `Fault confirmed for ${node.label}`,
-        parent_faulty_entity_id: lookupResponse.matched_entity_id,
+        parent_faulty_entity_id: lookupResponses.matched_entity_id,
       });
       toast.success(`Confirmed fault for ${node.label}`);
     } catch (err) {
@@ -380,7 +388,7 @@ export default function MaintenancePage() {
         setPartNumber={setPartNumber}
         onLookup={handleLookup}
         onCreateCase={handleCreateCaseFromLookup}
-        lookupResponse={lookupResponse}
+        lookupResponse={lookupResponses}
         caseId={lookupCaseId}
         lookupLoading={lookupLoading}
         lookupError={lookupError}

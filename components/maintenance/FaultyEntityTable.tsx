@@ -47,10 +47,11 @@ export function FaultyEntityTable({
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      <Table>
+      <Table> 
         <TableHeader>
           <TableRow className="bg-muted/50">
             <TableHead>Entity Type</TableHead>
+            <TableHead>Part #</TableHead>
             <TableHead>Entity ID</TableHead>
             <TableHead>Fault Type</TableHead>
             <TableHead>Status</TableHead>
@@ -61,7 +62,12 @@ export function FaultyEntityTable({
         <TableBody>
           {entities.map((entity) => (
             <TableRow key={entity.id} className="hover:bg-muted/50">
-              <TableCell className="text-sm">{entity.entity_type}</TableCell>
+              <TableCell className="text-sm">
+                {entity.entity_type}
+              </TableCell>
+              <TableCell className="text-sm">
+                {entity.part_number ? `${entity.entity_type} (${entity.part_number})` : "xxxxxxxxx"}
+              </TableCell>
               <TableCell className="text-sm font-medium">
                 {entity.entity_id}
               </TableCell>

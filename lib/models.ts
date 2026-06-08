@@ -335,7 +335,7 @@ export interface CreateMaintenanceCasePayload {
   status: CaseStatus;
   entity_id: number;
   entity_type: string;
-  part_number:string;
+  part_number?:string;
 }
 
 export interface UpdateMaintenanceCasePayload {
@@ -385,6 +385,9 @@ export interface EntityLookupNode {
   label: string;
   depth?: number;
   children?: EntityLookupNode[];
+  entity_name: string;
+  entity_PartNumber: string;
+  entity_SerialNumber: string;
 }
 
 export interface EntityLookupResponse {
@@ -401,12 +404,29 @@ export interface EntityLookupResponse {
   customer_name: string;
 }
 
+export interface lookUpResponse extends EntityLookupResponse {
+  fault_description?: string;
+  status?: FaultyEntityStatus;
+  resolution_type?: ResolutionType;
+  identified_at?: string;
+  resolved_at?: string;
+
+  confirmed_at?: string;
+  investigation_notes?: string;
+  created_at?: string;
+  updated_at?: string;
+  matched_entity_serialNumber: string;
+  matched_entity_PartNumber: string;
+}
+
 export interface SuspectChildrenPayload {
   entity_type: string;
   entity_id: number;
   fault_type: string;
   fault_description?: string;
   entity_name: string;
+  serial_number?: string;
+  part_number?: string;
 }
 
 export interface ConfirmFaultPayload {

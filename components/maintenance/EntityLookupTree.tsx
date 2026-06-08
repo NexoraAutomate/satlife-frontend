@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { EntityLookupNode, EntityLookupResponse } from '@/lib/models';
+import type { EntityLookupNode, EntityLookupResponse, lookUpResponse } from '@/lib/models';
 
 interface EntityLookupTreeProps {
-  response: EntityLookupResponse;
+  response: lookUpResponse;
   caseId?: number | null;
   onSuspectChildren?: () => Promise<void>;
   onConfirmFault?: (node: EntityLookupNode) => Promise<void>;
@@ -103,30 +103,14 @@ export function EntityLookupTree({
   onConfirmFault,
 }: EntityLookupTreeProps) {
   return (
-    <div className="space-y-4">
-      <Card className="p-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="flex flex-col justify-between">
+      <div className="p-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-1">
           <div>
-            <p className="text-sm text-muted-foreground">Matched Entity</p>
             <p className="font-semibold">{response.matched_label}</p>
             <p className="text-xs text-muted-foreground">
-              {response.matched_entity_type} • ID {response.matched_entity_id}
+              Sr# - {response.matched_entity_serialNumber}
             </p>
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Project</p>
-            <p className="font-semibold">{response.project_name}</p>
-            <p className="text-xs text-muted-foreground">ID {response.project_id}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Order</p>
-            <p className="font-semibold">{response.order_ref}</p>
-            <p className="text-xs text-muted-foreground">ID {response.order_id}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Customer</p>
-            <p className="font-semibold">{response.customer_name}</p>
-            <p className="text-xs text-muted-foreground">ID {response.customer_id}</p>
           </div>
         </div>
         {caseId && onSuspectChildren && (
@@ -136,28 +120,29 @@ export function EntityLookupTree({
             </Button>
           </div>
         )}
-      </Card>
-
-      <Card className="p-4">
-        <h3 className="text-sm font-semibold">Ancestors</h3>
-        <div className="mt-3 space-y-2">
+      </div>
+      <div className = "">
+      
+      <div className="p-4 flex flex-col">
+        <h3 className="flex font-semibold">Ancestors</h3>
+        <div className="flex flex-row-reverse mt-3 space-y-2 w-full border justify-between overflow-x-hidden">
           {response.ancestors.length === 0 ? (
             <p className="text-sm text-muted-foreground">No ancestors available.</p>
           ) : (
             response.ancestors.map((ancestor) => (
               <div
                 key={`${ancestor.entity_type}-${ancestor.entity_id}`}
-                className="flex items-center gap-3 rounded-md border border-border p-3"
+                className=" breadcrumb not-odd:items-center gap-3 grid grid-cols-1 p-3 max-h-20"
               >
-                <span className="text-sm font-medium">{ancestor.label}</span>
-                <Badge variant="outline" className="text-[10px] uppercase">
+                <span className="text-sm font-bold ">{ancestor.entity_name}</span>
+                <Badge variant="outline" className="text-[10px] uppercase bg-amber-50">
                   {ancestor.entity_type}
                 </Badge>
               </div>
             ))
           )}
         </div>
-      </Card>
+      </div>
 
       <Card className="p-4">
         <h3 className="text-sm font-semibold">Hierarchy Tree</h3>
@@ -168,6 +153,9 @@ export function EntityLookupTree({
               entity_id: response.matched_entity_id,
               label: response.matched_label,
               children: response.descendants,
+              entity_name : response.matched_label,
+              entity_PartNumber: response.matched_entity_PartNumber,
+              entity_SerialNumber: response.matched_entity_serialNumber,
             }}
             depth={0}
             caseId={caseId}
@@ -175,6 +163,7 @@ export function EntityLookupTree({
           />
         </div>
       </Card>
+      </div>
     </div>
   );
 }

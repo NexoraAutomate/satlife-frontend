@@ -184,7 +184,7 @@ export const maintenanceCases = {
   create: (data: Models.CreateMaintenanceCasePayload) => api.post<Models.MaintenanceCase>('/maintenance-cases/', data),
   update: (id: number, data: Models.UpdateMaintenanceCasePayload) => api.put<Models.MaintenanceCase>(`/maintenance-cases/${id}/`, data),
   delete: (id: number) => api.delete(`/maintenance-cases/${id}/`),
-  lookupEntityByPartNumber: (partNumber: string) => api.get<Models.EntityLookupResponse>(`/entities/lookup-by-PN/${encodeURIComponent(partNumber)}/`),
+  lookupEntityByPartNumber: (partNumber: string) => api.get<Models.lookUpResponse>(`/entities/lookup-by-PN/${encodeURIComponent(partNumber)}/`),
   suspectChildren: (caseId: number, data: Models.SuspectChildrenPayload) => api.post(`/maintenance-cases/${caseId}/suspect-children/`, data),
   confirmFault: (caseId: number, data: Models.ConfirmFaultPayload) => api.post(`/maintenance-cases/${caseId}/confirm-fault/`, data),
 };
