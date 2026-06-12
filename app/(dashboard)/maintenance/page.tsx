@@ -123,6 +123,7 @@ export default function MaintenancePage() {
       console.log('Lookup response:', response);
       setLookupResponse(response);
       console.log('Lookup response:', lookupResponses);
+      console.log(JSON.stringify(lookupResponses?.descendants, null, 2));
     } catch (err) {
       console.error('Lookup failed:', err);
       setLookupError('No entity found for that part number.');
@@ -221,7 +222,7 @@ export default function MaintenancePage() {
   };
   
   const handleView = (caseItem: MaintenanceTypes.MaintenanceCase) => {
-    router.push(`/dashboard/maintenance/cases/${caseItem.id}`);
+    router.push(`/maintenance/cases/${caseItem.id}`);
   };
 
   const handleStatusFilter = (status: string) => {
@@ -232,6 +233,7 @@ export default function MaintenancePage() {
     try {
       const res = await maintenanceApi.faultyEntities.listByCaseId(caseId);
       setFaultyEntities(res.data);
+      console.log("Faulty entities for case", caseId, res.data)
       return res.data;
     } catch (err) {
       console.error('Failed to fetch faulty entities:', err);

@@ -39,11 +39,13 @@ export function MaintenanceLookupDialog({
 }: MaintenanceLookupDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange} >
-      <DialogContent className={`sm:max-w-4xl ${lookupResponse? "lg:max-w-9/12" : "lg:max-w-4xl"} border-8`}>
+      <DialogContent
+        className={`sm:max-w-4xl ${lookupResponse ? 'lg:max-w-9/12 max-h-[90vh] min-h-105 overflow-hidden' : 'lg:max-w-4xl'} border-8`}
+      >
         <DialogHeader>
           <DialogTitle>Maintenance Entity Lookup</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
+        <div className="grid min-h-0 flex-1 gap-4 py-2 overflow-hidden">
           <div className="grid gap-2">
             <Label htmlFor="part-number">Part Number</Label>
             <Input

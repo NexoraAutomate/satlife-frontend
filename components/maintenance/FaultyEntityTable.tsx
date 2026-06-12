@@ -52,6 +52,7 @@ export function FaultyEntityTable({
           <TableRow className="bg-muted/50">
             <TableHead>Entity Type</TableHead>
             <TableHead>Part #</TableHead>
+            <TableHead>Ser #</TableHead>
             <TableHead>Entity ID</TableHead>
             <TableHead>Fault Type</TableHead>
             <TableHead>Status</TableHead>
@@ -66,7 +67,10 @@ export function FaultyEntityTable({
                 {entity.entity_type}
               </TableCell>
               <TableCell className="text-sm">
-                {entity.part_number ? `${entity.entity_type} (${entity.part_number})` : "xxxxxxxxx"}
+                {entity.part_number ? `${entity.part_number}` : "xxxxxxxxx"}
+              </TableCell>
+              <TableCell className="text-sm">
+                {entity.serial_number ? `${entity.serial_number}` : "xxxxxxxxx"}
               </TableCell>
               <TableCell className="text-sm font-medium">
                 {entity.entity_id}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
@@ -26,9 +26,10 @@ const buildTreeNodes = (entities: FaultyEntity[]) =>
     children: [],
   }));
 
-export default function MaintenanceCaseInvestigationPage({ params }: { params: { id: string } }) {
+export default function MaintenanceCaseInvestigationPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const caseId = Number(params.id);
+  const resolvedParams = use(params);
+  const caseId = Number(resolvedParams.id);
 
   const [maintenanceCase, setMaintenanceCase] = useState<MaintenanceCase | null>(null);
   const [entities, setEntities] = useState<FaultyEntity[]>([]);
@@ -65,12 +66,16 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: {
       const [caseRes, entitiesRes, timelineRes] = await Promise.all([
         maintenanceService.getCase(caseId),
         maintenanceService.getFaultyEntitiesByCaseId(caseId),
-        maintenanceService.getCaseTimeline(caseId),
+        maintenanceService.getFaultyEntitiesByCaseId(caseId),
+        // maintenanceService.getCaseTimeline(caseId),
       ]);
+      console.log("Maintenance case Detail", caseRes.data);
+      console.log("Maintenance case FaultyENtities", entitiesRes.data);
+      console.log("Maintenance case Timeline", timelineRes.data);
 
       setMaintenanceCase(caseRes.data);
       setEntities(entitiesRes.data || []);
-      setTimeline(timelineRes.data || []);
+      // setTimeline(timelineRes.data || []);
     } catch (error) {
       console.error('Unable to load investigation data', error);
       toast.error('Failed to load maintenance investigation details.');
@@ -163,7 +168,7 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: {
     <div className="space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
-          <Link href="/dashboard/maintenance" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+          <Link href="/maintenance" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
             <ArrowLeft className="h-4 w-4" /> Back to maintenance cases
           </Link>
           <h1 className="text-3xl font-semibold tracking-tight">Maintenance Case Investigation</h1>

@@ -384,7 +384,7 @@ export interface EntityLookupNode {
   entity_id: number;
   label: string;
   depth?: number;
-  children?: EntityLookupNode[];
+  children: EntityLookupNode[];
   entity_name: string;
   entity_PartNumber: string;
   entity_SerialNumber: string;
