@@ -119,6 +119,7 @@ interface DataStoreContextType {
   getFaultyEntity: (id: number) => Promise<MaintenanceTypes.FaultyEntity>;
   createFaultyEntity: (data: MaintenanceTypes.CreateFaultyEntityPayload) => Promise<MaintenanceTypes.FaultyEntity>;
   updateFaultyEntity: (id: number, data: MaintenanceTypes.UpdateFaultyEntityPayload) => Promise<MaintenanceTypes.FaultyEntity>;
+  // update_faulty_Children: (id: number, data: MaintenanceTypes.UpdateFaultyEntityPayload) => Promise<MaintenanceTypes.FaultyEntity>;
   deleteFaultyEntity: (id: number) => Promise<void>;
   cascadeFault: (entityId: number, faultType: string) => Promise<void>;
   getEntityMaintenanceHistory: (entityId: number) => Promise<MaintenanceTypes.MaintenanceAction[]>;
@@ -176,7 +177,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     };
 
     try {
-      console.log('Refreshing data...');
+      // console.log('Refreshing data...');
       setLoading(true);
 
       const [
@@ -243,7 +244,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    console.log("Refreshing data inside useEffect...");
+    // console.log("Refreshing data inside useEffect...");
     refreshData();
   }, []);
 
@@ -297,9 +298,9 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
   // Customers
   const getCustomer = async (id: number) => {
     try {
-      console.log("Fetching customer with ID:", id);
+      // console.log("Fetching customer with ID:", id);
       const res = await api.customers.get(id);
-      console.log("Fetched customers:", res.data);
+      // console.log("Fetched customers:", res.data);
       return res.data;
 
     } catch (err) {
@@ -402,9 +403,9 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
 
   const createProject = async (data: Partial<Models.Project>) => {
     try {
-      console.log("Created project:");
+      // console.log("Created project:");
       const res = await api.projects.create(data);
-      console.log("Created project:", res.data);
+      // console.log("Created project:", res.data);
       setProjects([...projects, res.data]);
       toast.success('Project created successfully');
       return res.data;
@@ -945,6 +946,18 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const update_faulty_Children = async (id: number, data: MaintenanceTypes.UpdateFaultyEntityPayload) => {
+    try {
+      const res = await api.faultyEntities.updateChildren(id, data);
+      setFaultyEntities(faultyEntities.map((e) => (e.id === id ? res.data : e)));
+      toast.success('Faulty entity updated successfully');
+      return res.data;
+    } catch (err) {
+      toast.error('Failed to update faulty entity');
+      throw err;
+    }
+  };
+
   const deleteFaultyEntity = async (id: number) => {
     try {
       await api.faultyEntities.delete(id);
@@ -1160,6 +1173,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     getFaultyEntity,
     createFaultyEntity,
     updateFaultyEntity,
+    // update_faulty_Children,
     deleteFaultyEntity,
     cascadeFault,
     getEntityMaintenanceHistory,

@@ -7,6 +7,7 @@ import { useDataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EntityLookupNode } from '@/lib/models';
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ export default function MaintenancePage() {
   const [isLookupOpen, setIsLookupOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<MaintenanceTypes.MaintenanceCase | null>(null);
   const [partNumber, setPartNumber] = useState('');
+  const [partNumbers, setPartNumbers] = useState<string[]>([]);
   const [lookupResponses, setLookupResponse] = useState<MaintenanceTypes.lookUpResponse | null>(null);
   const [lookupCaseId, setLookupCaseId] = useState<number | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -50,13 +52,15 @@ export default function MaintenancePage() {
   // Load maintenance cases on mount
   useEffect(() => {
     loadMaintenanceCases();
+    loadPartNumber();
+
   }, []);
 
   const loadMaintenanceCases = async () => {
     try {
       setIsLoadingData(true);
       const res = await maintenanceApi.maintenanceCases.list(0, 100);
-      console.log('Loaded maintenance cases:', res.data);
+      // console.log('Loaded maintenance cases:', res.data);
       // Note: This data would typically be managed by the data store
       // For now, we're managing it locally in the component
     } catch (err) {
@@ -66,6 +70,23 @@ export default function MaintenancePage() {
       setIsLoadingData(false);
     }
   };
+
+  const loadPartNumber = async () => {
+    try {
+      setIsLoadingData(true);
+      const res = await maintenanceApi.entities.partNumber();
+      setPartNumbers(res.data)
+      console.log('Loaded PartNumbers:', res.data);
+      // Note: This data would typically be managed by the data store
+      // For now, we're managing it locally in the component
+    } catch (err) {
+      console.error('Failed to load PartNumbers:', err);
+      toast.error('Failed to load PartNumbers');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
 
   const filtered = maintenanceCases.filter((c) => {
     const matchesSearch =
@@ -83,7 +104,7 @@ export default function MaintenancePage() {
 
   const handleCreate = async (data: MaintenanceTypes.CreateMaintenanceCasePayload) => {
     try {
-      console.log('Creating case with data:', data);
+      // console.log('Creating case with data:', data);
       await createMaintenanceCase(data);
       await loadMaintenanceCases();
     } catch (err) {
@@ -120,10 +141,10 @@ export default function MaintenancePage() {
 
     try {
       const response = await lookupEntityByPartNumber(partNumberValue);
-      console.log('Lookup response:', response);
+      // console.log('Lookup response:', response);
       setLookupResponse(response);
-      console.log('Lookup response:', lookupResponses);
-      console.log(JSON.stringify(lookupResponses?.descendants, null, 2));
+      // console.log('Lookup response:', lookupResponses);
+      // console.log(JSON.stringify(lookupResponses?.descendants, null, 2));
     } catch (err) {
       console.error('Lookup failed:', err);
       setLookupError('No entity found for that part number.');
@@ -146,11 +167,11 @@ export default function MaintenancePage() {
       entity_type: lookupResponses.matched_entity_type.toLowerCase(),
       part_number:lookupResponses.matched_entity_PartNumber
     };
-    console.log('Creating case with payload:', payload)
+    // console.log('Creating case with payload:', payload)
     try {
       const created = await createMaintenanceCase(payload);
       setLookupCaseId(created.id);
-      console.log(lookupCaseId);
+      // console.log(lookupCaseId);
       await loadMaintenanceCases();
       toast.success(`Created maintenance case #${created.id}`);
     } catch (err) {
@@ -160,16 +181,8 @@ export default function MaintenancePage() {
 
   const handleSuspectChildren = async () => {
     if (!lookupResponses || !lookupCaseId) return;
-        console.log('Lookup response:', lookupResponses);
 
-        console.log('serial_number:', lookupResponses.matched_entity_serialNumber)
-        console.log('part_number:', lookupResponses.matched_entity_PartNumber)
     try {
-      console.log('Starting suspect children workflow with:', {
-        caseId: lookupCaseId,
-        entity_type: lookupResponses.matched_entity_type.toLowerCase(),
-        entity_id: lookupResponses.matched_entity_id,
-      });
       await suspectChildren(lookupCaseId, {
         entity_type: lookupResponses.matched_entity_type.toLowerCase(),
         entity_id: lookupResponses.matched_entity_id,
@@ -178,8 +191,10 @@ export default function MaintenancePage() {
         entity_name: lookupResponses.matched_label,
         serial_number: lookupResponses.matched_entity_serialNumber,
         part_number: lookupResponses.matched_entity_PartNumber,
+        children: lookupResponses.descendants,
 
       });
+      console.log('Lookup Response Children', lookupResponses.descendants)
       toast.success('Children suspicion workflow started.');
     } catch (err) {
       console.error('Suspect children failed:', err);
@@ -388,6 +403,7 @@ export default function MaintenancePage() {
         }}
         partNumber={partNumber}
         setPartNumber={setPartNumber}
+        partNumbers={partNumbers}
         onLookup={handleLookup}
         onCreateCase={handleCreateCaseFromLookup}
         lookupResponse={lookupResponses}

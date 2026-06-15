@@ -1,3 +1,4 @@
+
 // User
 export interface User {
   id: number
@@ -68,9 +69,13 @@ export interface System {
   description: string
   project_id: number
   status_id: number
+  part_number: string
+  serial_number: string
+  configuration_item: string
   created_at: string
   project?: Project
   status?: Status
+  
 }
 
 // Subsystem
@@ -81,6 +86,9 @@ export interface Subsystem {
   system_id: number
   status_id: number
   created_at: string
+  part_number: string
+  serial_number: string
+  configuration_item: string
   system?: System
   status?: Status
 }
@@ -93,6 +101,9 @@ export interface Module {
   subsystem_id: number
   status_id: number
   created_at: string
+  part_number: string
+  serial_number: string
+  configuration_item: string
   subsystem?: Subsystem
   status?: Status
 }
@@ -105,6 +116,9 @@ export interface Unit {
   module_id: number
   status_id: number
   created_at: string
+  part_number: string
+  serial_number: string
+  configuration_item: string
   module?: Module
   status?: Status
 }
@@ -118,6 +132,9 @@ export interface Component {
   unit_id: number
   status_id: number
   created_at: string
+  part_number: string
+  serial_number: string
+  configuration_item: string
   unit?: Unit
   status?: Status
 }
@@ -200,22 +217,22 @@ export enum FaultType {
 }
 
 export enum FaultyEntityStatus {
-  Identified = 'identified',
-  Suspected = 'suspected',
-  UnderInspection = 'under_inspection',
-  ConfirmedFaulty = 'confirmed_faulty',
-  Healthy = 'healthy',
-  FalsePositive = 'false_positive',
-  NoFaultFound = 'no_fault_found',
-  Resolved = 'resolved',
+  IDENTIFIED       = "identified",
+  SUSPECTED        = "suspected",
+  UNDER_INSPECTION = "under_inspection",
+  CONFIRMED_FAULTY = "confirmed_faulty",
+  HEALTHY          = "healthy",
+  RESOLVED         = "resolved",
+  NO_FAULT_FOUND   = "no_fault_found",
+  FALSEPOSITIVE = 'false_positive'
 }
 
 export enum ResolutionType {
-  Repair = 'repair',
-  Replacement = 'replacement',
-  Adjustment = 'adjustment',
-  Cleaning = 'cleaning',
-  Other = 'other',
+  REPAIRED = 'repair',
+  REPLACED = 'replacement',
+  NO_FAULT_FOUND   = "no_fault_found",
+  DECOMMISSIONED = "decommissioned",
+  CLEAR = 'clear',
 }
 
 export enum ActionType {
@@ -267,11 +284,12 @@ export interface MaintenanceCase {
   part_number:string;
   reported_at: string;
   reported_by?: string;
+  reported_by_user?: string;
   resolved_at?: string;
   resolution_notes?: string;
   created_at: string;
   updated_at: string;
-  project?: any;
+  project_name?: string;
 }
 
 // Faulty Entity
@@ -388,6 +406,8 @@ export interface EntityLookupNode {
   entity_name: string;
   entity_PartNumber: string;
   entity_SerialNumber: string;
+  parent_ID: number;
+  parent_type: string;
 }
 
 export interface EntityLookupResponse {
@@ -427,6 +447,7 @@ export interface SuspectChildrenPayload {
   entity_name: string;
   serial_number?: string;
   part_number?: string;
+  children?:EntityLookupNode[];
 }
 
 export interface ConfirmFaultPayload {

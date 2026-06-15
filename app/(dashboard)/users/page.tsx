@@ -48,10 +48,10 @@ export default function UsersPage() {
         setLoadingRoles(true);
 
         const rolesRes = await api.auth.listRoles();
-        console.log("rolesRes OK", rolesRes.data);
+        // console.log("rolesRes OK", rolesRes.data);
 
         const usersRes = await api.users.usersWithRoles();
-        console.log("usersRes OK", usersRes.data);
+        // console.log("usersRes OK", usersRes.data);
 
         setRoles(rolesRes.data);
         setUsersWithRoles(usersRes.data);
@@ -76,8 +76,8 @@ export default function UsersPage() {
 
   // Debug logging
   useEffect(() => {
-    console.log('Users data:', users);
-    console.log('Roles data:', roles);
+    // console.log('Users data:', users);
+    // console.log('Roles data:', roles);
   }, [users, roles]);
 
   // Admin-only access
@@ -105,7 +105,7 @@ export default function UsersPage() {
         email: formData.email,
       };
       const res = await api.auth.register(userData);
-      console.log('User registered:', res.data);
+      // console.log('User registered:', res.data);
       setFormData({ username: '', password: '', full_name: '', email: '', role_id: '' });
       setIsCreateOpen(false);
       toast.success('User created successfully');
@@ -136,12 +136,12 @@ export default function UsersPage() {
       }
 
       await updateUser(editingId, userData);
-      console.log('User updated:', editingId);
+      // console.log('User updated:', editingId);
 
       if (editFormData.role_id) {
         const roleId = parseInt(editFormData.role_id);
         await api.auth.assignRole(editingId, roleId);
-        console.log('Role assigned to user:', editingId, 'roleId:', roleId);
+        // console.log('Role assigned to user:', editingId, 'roleId:', roleId);
       }
 
       setEditFormData({ username: '', password: '', full_name: '', email: '', role_id: '' });

@@ -144,7 +144,7 @@ export default function ProjectsPage(){
     }, []);
   if (loading) return <div className="p-8 text-center">Loading...</div>;
   const statusNames = statuses.map((status) => status.name);
-  console.log(statusNames)
+  // console.log(statusNames)
   return (
     <div className="space-y-8">
       <div>
@@ -183,7 +183,7 @@ export default function ProjectsPage(){
             {/* {['Initiation', 'Planning', 'Execution', 'Monitoring', 'Completed', 'On Hold'] */}
             {statusNames.map((s) => {
               const count = projects.filter(p => p.status?.name === s).length;
-              console.log(`Status: ${s}, Count: ${count}`, projects);
+              // console.log(`Status: ${s}, Count: ${count}`, projects);
               const icons: Record<string, any> = {
                 'Initiation': Clock,
                 'Planning': Presentation,

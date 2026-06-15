@@ -10,10 +10,12 @@ interface MaintenanceCaseSummaryProps {
   maintenanceCase: MaintenanceCase;
   projectName?: string;
   counts: {
+    under_inspection: number;
     suspected: number;
     confirmed: number;
     healthy: number;
     resolved: number;
+    total: number;
   };
 }
 
@@ -23,7 +25,6 @@ export function MaintenanceCaseSummary({ maintenanceCase, projectName, counts }:
       <Card className="p-4 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Maintenance Case Investigation</p>
             <h1 className="text-2xl font-semibold tracking-tight">{maintenanceCase.case_number}</h1>
             <p className="text-sm text-muted-foreground max-w-2xl">{maintenanceCase.description}</p>
           </div>
@@ -33,14 +34,14 @@ export function MaintenanceCaseSummary({ maintenanceCase, projectName, counts }:
           </div>
         </div>
 
-        <div className="grid gap-4 pt-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Project</p>
-            <p className="font-semibold">{projectName || maintenanceCase.project?.name || 'Unknown'}</p>
+            <p className="font-semibold">{projectName || 'Unknown'}</p>
           </div>
           <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Reported By</p>
-            <p className="font-semibold">{maintenanceCase.reported_by || 'Unknown'}</p>
+            <p className="font-semibold">{maintenanceCase.reported_by_user || 'Unknown'}</p>
           </div>
           <div className="space-y-1 rounded-lg border border-border bg-muted p-4">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Resolution Notes</p>
@@ -53,11 +54,13 @@ export function MaintenanceCaseSummary({ maintenanceCase, projectName, counts }:
         </div>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <KPICard title="Suspected" value={counts.suspected} change={0} icon={Package} accentColor="amber" />
-        <KPICard title="Confirmed Faulty" value={counts.confirmed} change={0} icon={Package} accentColor="red" />
-        <KPICard title="Healthy" value={counts.healthy} change={0} icon={Package} accentColor="green" />
-        <KPICard title="Resolved" value={counts.resolved} change={0} icon={Package} accentColor="slate" />
+      <div className="grid gap-4 md:grid-cols-6">
+        <KPICard title="Total" value={counts.total} change={0} icon={Package} accentColor="blue" />
+        <KPICard title="Under Inspection" value={counts.under_inspection} change={100*counts.under_inspection/counts.total} icon={Package} accentColor="orange" />
+        <KPICard title="Suspected" value={counts.suspected} change={100*counts.suspected/counts.total} icon={Package} accentColor="green" />
+        <KPICard title="Confirmed Faulty" value={counts.confirmed} change={100*counts.confirmed/counts.total} icon={Package} accentColor="red" />
+        <KPICard title="Healthy" value={counts.healthy} change={100*counts.healthy/counts.total} icon={Package} accentColor="amber" />
+        <KPICard title="Resolved" value={counts.resolved} change={100*counts.resolved/counts.total} icon={Package} accentColor="slate" />
       </div>
     </div>
   );

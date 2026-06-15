@@ -158,6 +158,7 @@ export const entities = {
   get: (id: number) => api.get<Models.Entity>(`/entities/${id}/`),
   getStatusHistory: (id: number) => api.get<Models.EntityStatusHistory[]>(`/entities/${id}/status-history/`),
   getMaintenanceLogs: (id: number) => api.get<Models.MaintenanceLog[]>(`/entities/${id}/maintenanceLogs-logs/`),
+  partNumber: () => api.get<string[]>("/part-numbers/"),
 };
 
 // Entity Status History
@@ -196,6 +197,7 @@ export const faultyEntities = {
   get: (id: number) =>    api.get<Models.FaultyEntity>(`/faulty-entities/${id}/`),
   create: (data: Models.CreateFaultyEntityPayload) =>    api.post<Models.FaultyEntity>('/faulty-entities/', data),
   update: (id: number, data: Models.UpdateFaultyEntityPayload) =>    api.put<Models.FaultyEntity>(`/faulty-entities/${id}/`, data),
+  updateChildren: (id: number, data: Models.UpdateFaultyEntityPayload) =>    api.put<Models.FaultyEntity>(`/faulty-entities-Children/${id}/`, data),
   delete: (id: number) =>    api.delete(`/faulty-entities/${id}/`),
   cascadeFault: (entityId: number, faultType: string) =>    api.post(`/faulty-entities/${entityId}/cascade-fault/`, { fault_type: faultType }),
   getMaintenanceHistory: (entityId: number) =>    api.get<Models.MaintenanceAction[]>(`/faulty-entities/${entityId}/history/`),

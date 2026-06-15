@@ -131,12 +131,12 @@ function TreeNode({
 function buildTree(nodes: EntityLookupNode[]) {
   const roots: EntityLookupNode[] = [];
   const stack: EntityLookupNode[] = [];
-  console.log("build Tree Stack", stack)
+  // console.log("build Tree Stack", stack)
   const processed = nodes.map((node) => ({
     ...node,
     children: [] as EntityLookupNode[],
   }));
-  console.log("BuildTree Processed Nodes", processed)
+  // console.log("BuildTree Processed Nodes", processed)
 
   for (const current of processed) {
     while (stack.length > 0 &&  (stack[stack.length - 1].depth ?? 0) >= (current.depth ?? 0))
@@ -212,7 +212,7 @@ export function EntityLookupTree({
                   )}
           </div>
 
-          <div className="max-h-[45vh] min-h-[180px] overflow-y-auto border-2 p-4">
+          <div className="max-h-[45vh] min-h-45 overflow-y-auto border-2 p-4">
             <h3 className="flex font-semibold border-b-2">Hierarchy Tree</h3>
             <div className="mt-3 space-y-2">
               <TreeNode

@@ -22,6 +22,7 @@ interface MaintenanceFaultyEntitiesTableProps {
   onToggleSelectAll: () => void;
   onView?: (entity: FaultyEntity) => void;
   onConfirmFaulty?: (entity: FaultyEntity) => void;
+  onMarkHealthy?: (entity: FaultyEntity) => void;
   isLoading?: boolean;
 }
 
@@ -32,6 +33,7 @@ export function MaintenanceFaultyEntitiesTable({
   onToggleSelectAll,
   onView,
   onConfirmFaulty,
+  onMarkHealthy,
   isLoading = false,
 }: MaintenanceFaultyEntitiesTableProps) {
   const allSelected = useMemo(
@@ -99,6 +101,16 @@ export function MaintenanceFaultyEntitiesTable({
                       className="h-8 w-8 p-0"
                     >
                       ✓
+                    </Button>
+                  )}
+                  {onMarkHealthy && entity.status !== 'healthy' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onMarkHealthy(entity)}
+                      className="h-8 w-8 p-0"
+                    >
+                      H
                     </Button>
                   )}
                 </div>

@@ -7,12 +7,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EntityLookupTree } from './EntityLookupTree';
 import type { EntityLookupNode, lookUpResponse } from '@/lib/models';
-
+import { useState } from 'react';
+import { Check, ChevronsUpDown } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 interface MaintenanceLookupDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   partNumber: string;
   setPartNumber: (value: string) => void;
+  partNumbers: string[],
   onLookup: (partNumber: string) => Promise<void>;
   onCreateCase: () => Promise<void>;
   lookupResponse: lookUpResponse | null;
@@ -23,11 +37,81 @@ interface MaintenanceLookupDialogProps {
   onConfirmFault?: (node: EntityLookupNode) => Promise<void>;
 }
 
+interface PartNumberFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}
+
+function PartNumberField({
+  value,
+  onChange,
+  options,
+}: PartNumberFieldProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor="part-number">Part Number</Label>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="justify-between"
+          >
+            {value || 'Select part number'}
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent className="w-full p-0">
+          <Command>
+            <CommandInput
+              placeholder="Search part number..."
+              value={value}
+              onValueChange={onChange}
+            />
+
+            <CommandEmpty>No part number found.</CommandEmpty>
+
+            <CommandGroup className="max-h-64 overflow-auto">
+              {options.map((partNumber) => (
+                <CommandItem
+                  key={partNumber}
+                  value={partNumber}
+                  onSelect={(selectedValue) => {
+                    onChange(selectedValue);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={`mr-2 h-4 w-4 ${
+                      value === partNumber
+                        ? 'opacity-100'
+                        : 'opacity-0'
+                    }`}
+                  />
+
+                  {partNumber}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 export function MaintenanceLookupDialog({
   isOpen,
   onOpenChange,
   partNumber,
   setPartNumber,
+  partNumbers,
   onLookup,
   onCreateCase,
   lookupResponse,
@@ -46,7 +130,12 @@ export function MaintenanceLookupDialog({
           <DialogTitle>Maintenance Entity Lookup</DialogTitle>
         </DialogHeader>
         <div className="grid min-h-0 flex-1 gap-4 py-2 overflow-hidden">
-          <div className="grid gap-2">
+          <PartNumberField
+            value={partNumber}
+            onChange={setPartNumber}
+            options={partNumbers}
+/>
+          {/* <div className="grid gap-2">
             <Label htmlFor="part-number">Part Number</Label>
             <Input
               id="part-number"
@@ -54,7 +143,7 @@ export function MaintenanceLookupDialog({
               onChange={(event) => setPartNumber(event.target.value)}
               placeholder="Enter part number to lookup"
             />
-          </div>
+          </div> */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={() => onLookup(partNumber)}
