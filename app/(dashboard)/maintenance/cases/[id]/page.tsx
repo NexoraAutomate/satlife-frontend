@@ -161,7 +161,7 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
       setActionLoading(false);
     }
   };
-  
+
   const handleMarkHealthy = async (entity: FaultyEntity) => {
     setActionLoading(true);
     try {
@@ -257,7 +257,7 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
         </div>
       </div>
 
-      <Separator />
+      {/* <Separator /> */}
 
       {maintenanceCase ? (
         

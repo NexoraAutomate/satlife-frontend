@@ -170,10 +170,10 @@ export function EntityLookupTree({
       
           <div className="p-2 gap-2 flex flex-col">
             <h3 className="flex font-semibold border-b-2">Ancestors</h3>
-            <div className="flex  w-full items-start overflow-x-hidden h-22 ">
+            <div className="flex  w-full items-start overflow-x-hidden h-28 ">
               
               
-              <div className="  breadcrumb bg-orange-500! gap-2 grid grid-cols-1 p-2 h-full">
+              <div className="  breadcrumb bg-orange-500! gap-2 grid grid-cols-1 p-2 h-28">
                     <span className="text-[13px] font-bold">{response.matched_label}</span>
                       <p className="text-xs text-lime-950">
                         Sr# - {response.matched_entity_serialNumber}
@@ -190,7 +190,7 @@ export function EntityLookupTree({
               
                   <div
                     key={`${ancestor.entity_type}-${ancestor.entity_id}`}
-                    className=" breadcrumb not-odd:items-center gap-2 grid grid-cols-1 p-2 h-full"
+                    className=" breadcrumb not-odd:items-center gap-2 grid grid-cols-1 p-2 h-28"
                   >
                     <span className="text-[13px] font-bold ">{ancestor.entity_name}</span>
                      <p className="text-xs text-lime-950">

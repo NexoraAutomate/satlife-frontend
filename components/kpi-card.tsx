@@ -1,6 +1,6 @@
 "use client";
 
-import { type LucideIcon, TrendingUp, TrendingDown, TrendingUpDown  } from "lucide-react";
+import { type LucideIcon, TrendingUp, TrendingDown, TrendingUpDown, Ellipsis   } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +9,7 @@ interface KPICardProps {
   value: string | number;
   change: number;
   icon: LucideIcon;
-  accentColor: "blue" | "green" | "red" | "amber" | "orange" | "slate";
+  accentColor: "blue" | "green" | "red" | "amber" | "orange" | "slate" | "emerald";
 }
 
 const accentStyles = {
@@ -19,6 +19,7 @@ const accentStyles = {
   amber: "border-l-amber-500 dark:border-l-amber-400",
   orange: "border-l-orange-500 dark:border-l-orange-400",
   slate: "border-l-slate-500 dark:border-l-slate-400",
+  emerald: "border-l-emerald-500 dark:emerald-l-emerald-400",
 };
 
 const iconBgStyles = {
@@ -28,6 +29,7 @@ const iconBgStyles = {
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400",
   orange: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400",
   slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-400",
 };
 
 export function KPICard({ title, value, change, icon: Icon, accentColor }: KPICardProps) {
@@ -43,7 +45,7 @@ export function KPICard({ title, value, change, icon: Icon, accentColor }: KPICa
             {change > 0 ? (
               <TrendingUp className="h-3 w-3 text-emerald-500" />
             ):
-            change == 0 ?  (<TrendingUpDown  className="h-3 w-3 text-blue-500" />)
+            change == 0 ?  (<Ellipsis  className="h-3 w-3 text-blue-500" />)
             : 
             ( 
               <TrendingDown className="h-3 w-3 text-red-500" />
@@ -54,7 +56,7 @@ export function KPICard({ title, value, change, icon: Icon, accentColor }: KPICa
                 change > 0 ? "text-emerald-600 dark:text-emerald-400" : change == 0? "text-blue-600  dark:text-blue-400": "text-red-600 dark:text-red-400"
               )}
             >
-              {isPositive ? "+" : ""}{change}%
+              {change > 0 ? `+${change}%` : ""}
             </span>
           </div>
         </div>
