@@ -13,9 +13,21 @@ export interface User {
 // Customer
 export interface Customer {
   id: number
+  customer_code: string
   name: string
-  contact_info: string
+  organization_type?: string | null
+  primary_contact_name?: string | null
+  designation?: string | null
+  email?: string | null
+  phone?: string | null
+  website?: string | null
+  address?: string | null
+  country?: string | null
+  notes?: string | null
+  status: string
+  created_by?: number | null
   created_at: string
+  updated_at: string
 }
 
 // Role
