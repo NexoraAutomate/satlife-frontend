@@ -28,7 +28,7 @@ export interface Role {
 // Status
 export interface Status {
   id: number
-  name: string
+  status_name: string
   description: string
   status_type: string
 }
@@ -58,7 +58,7 @@ export interface Project {
   updated_at: string
   owner?: User
   order?: Order
-  status?: Status
+  status_name?: Status
   systems?: System[]
 }
 
@@ -406,8 +406,8 @@ export interface EntityLookupNode {
   entity_name: string;
   entity_PartNumber: string;
   entity_SerialNumber: string;
-  parent_ID: number;
-  parent_type: string;
+  parent_ID?: number;
+  parent_type?: string;
 }
 
 export interface EntityLookupResponse {

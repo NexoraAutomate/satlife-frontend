@@ -10,12 +10,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Search, Clock, AlertTriangle, Zap, Pause, CheckCircle, Presentation, Asterisk } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Clock, AlertTriangle, Zap, Pause, CheckCircle, Presentation, Asterisk, AlertCircle, CheckCircle2, Wrench, Package, Lock, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
 import Link from 'next/link';
+import { KPICard } from '@/components/kpi-card';
+
+interface StatusCount {
+  status: string;
+  count: number;
+  icon: LucideIcon;
+  color: 'blue' | 'green' | 'red' | 'amber' | 'orange' | 'slate' | 'emerald';
+}
+
 
 export default function ProjectsPage(){
   const router = useRouter();
@@ -41,10 +50,50 @@ export default function ProjectsPage(){
   const [statuses, setStatuses] = useState<Models.Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(true);
 
+
+    // const statusCounts: StatusCount[] = [
+    //   {
+    //     status: 'Total',
+    //     count: totalCount,
+    //     icon: Package,
+    //     color: 'emerald',
+    //   },
+    //   {
+    //     status: 'open',
+    //     count: cases.filter((c) => c.status === 'open').length,
+    //     icon: AlertCircle,
+    //     color: 'blue',
+    //   },
+    //   {
+    //     status: 'under_inspection',
+    //     count: cases.filter((c) => c.status === 'under_inspection').length,
+    //     icon: Wrench,
+    //     color: 'amber',
+    //   },
+    //   {
+    //     status: 'under_repair',
+    //     count: cases.filter((c) => c.status === 'under_repair').length,
+    //     icon: Wrench,
+    //     color: 'orange',
+    //   },
+    //   {
+    //     status: 'resolved',
+    //     count: cases.filter((c) => c.status === 'resolved').length,
+    //     icon: CheckCircle2,
+    //     color: 'green',
+    //   },
+    //   {
+    //     status: 'closed',
+    //     count: cases.filter((c) => c.status === 'closed').length,
+    //     icon: Lock,
+    //     color: 'slate',
+    //   },
+    // ];
+  
   const filtered = projects.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.description.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || p.status?.name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || p.status?.status_name === statusFilter;
     console.log('Filtering project:', p.name, 'Matches Search:', matchesSearch, 'Matches Status:', matchesStatus);
     return matchesSearch && matchesStatus;
   });
@@ -117,7 +166,7 @@ export default function ProjectsPage(){
     });
     setIsEditOpen(true);
   }
-  const icons: Record<string, any> = {
+  const icons = {
                 'Initiation': Clock,
                 'Planning': Presentation,
                 'Execution': Zap,
@@ -126,6 +175,15 @@ export default function ProjectsPage(){
                 'On Hold': Pause,
                 'all': Asterisk,
               };
+  const status_colors = {
+                'Initiation': 'blue',
+                'Planning': 'amber',
+                'Execution': 'emerald',
+                'Monitoring': 'orange',
+                'Completed': 'green',
+                'On Hold': 'slate',
+                'all': 'red',
+              } as const;
   const Icon = icons['all'] || Clock;
 
   useEffect(() => {
@@ -142,9 +200,23 @@ export default function ProjectsPage(){
 
       fetchStatuses();
     }, []);
+
+
   if (loading) return <div className="p-8 text-center">Loading...</div>;
   const statusNames = statuses.map((status) => status.name);
-  // console.log(statusNames)
+  const Project_status = statuses.map((status) => ({
+      s_name: status.name,
+      s_count: filtered.filter(
+        (item) => item.status_name === status.name
+      ).length,
+      s_icon: icons[status.name as keyof typeof icons] ?? Clock,
+      s_color: status_colors[status.name as keyof typeof status_colors],
+    }));
+
+  console.log(statusNames)
+  console.log(filtered)
+  console.log(Project_status)
+
   return (
     <div className="space-y-8">
       <div>
@@ -154,10 +226,6 @@ export default function ProjectsPage(){
 
       {/* Status Breakdown */}
       <Card>
-        {/* <CardHeader> */}
-          {/* <CardTitle>Status Overview</CardTitle> */}
-          {/* <CardDescription>Click on a status to filter</CardDescription> */}
-        {/* </CardHeader> */}
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 border-4">
             <button
@@ -172,9 +240,9 @@ export default function ProjectsPage(){
                   <Icon className="flex h-3 text-muted-foreground border-2 w-full" />
                   <div className ='flex flex-col items-start justify-between border-2'>                
                         <p className="text-sm font-medium text-muted-foreground top-0 border-2">Total</p>
-                  <div className="flex justify-center border-2 w-full">
-                      <p className="text-4xl font-bold border-2 w-full">{projects.length}</p>
-                  </div>
+                    <div className="flex justify-center border-2 w-full">
+                        <p className="text-4xl font-bold border-2 w-full">{projects.length}</p>
+                    </div>
                   </div>
 
                 </CardContent>
@@ -202,7 +270,7 @@ export default function ProjectsPage(){
                   }}
                   className={`text-left cursor-pointer transition-transform ${statusFilter === s ? '' : ''}`}
                 >
-                  <Card className={`hover:shadow-lg ${statusFilter === s ? 'bg-accent' : 'h-full'}`}>
+                  <Card className={`hover:shadow-lg ${statusFilter === s ? 'bg-blue-500' : 'h-full'}`}>
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
@@ -219,6 +287,34 @@ export default function ProjectsPage(){
           </div>
         </CardContent>
       </Card>
+
+      <div className="">
+            {statuses.length > 0 && (
+  
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-6 items-stretch">
+              {Project_status.map((item) => (
+                <button
+                  key={item.s_name}
+                  
+                  // onClick={() => item.status === 'Total' ? handleStatusClick('all') : handleStatusClick(item.status)}
+                  className="w-full h-full cursor-pointer transition-transform hover:scale-105 "
+                >
+                  <div className = "h-full w-full">
+  
+                  
+                  <KPICard
+                    title={item.s_name.replace(/_/g, ' ').charAt(0).toUpperCase() + item.s_name.replace(/_/g, ' ').slice(1)}
+                    value={item.s_count}
+                    change={item.s_name != 'Total'? Math.round(100* item.s_count/filtered.length):0}
+                    icon={item.s_icon}
+                    accentColor={item.s_color}
+                  />
+                  </div>
+                </button>
+              ))}
+            </div>
+        )}
+      </div> 
 
       <div className="flex gap-4 items-center">
         <div className="flex-1 relative">
