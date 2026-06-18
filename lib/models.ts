@@ -13,7 +13,7 @@ export interface User {
 // Customer
 export interface Customer {
   id: number
-  customer_code: string
+  customer_code?: string
   name: string
   organization_type?: string | null
   primary_contact_name?: string | null
@@ -50,12 +50,53 @@ export interface Order {
   id: number
   customer_id: number
   order_number: string
-  status_id: number
+  title: string
+  description?: string | null
+  contract_number?: string | null
+  po_number?: string | null
+  order_date: string
+  delivery_date?: string | null
+  total_value?: number | null
+  currency: string
+  project_manager?: string | null
+  remarks?: string | null
+  status_id?: number | null
   created_at: string
   customer?: Customer
   status?: Status
 }
 
+export interface OrderCreate {
+  customer_id: number
+  order_number: string
+  title: string
+  description?: string
+  contract_number?: string
+  po_number?: string
+  order_date: string
+  delivery_date?: string
+  total_value?: number
+  currency?: string
+  project_manager?: string
+  remarks?: string
+  status_id?: number
+}
+
+export interface OrderUpdate {
+  customer_id?: number
+  order_number?: string
+  title?: string
+  description?: string
+  contract_number?: string
+  po_number?: string
+  order_date?: string
+  delivery_date?: string
+  total_value?: number
+  currency?: string
+  project_manager?: string
+  remarks?: string
+  status_id?: number
+}
 // Project
 export interface Project {
   id: number

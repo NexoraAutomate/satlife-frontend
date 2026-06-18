@@ -1,8 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Plus, Edit, Trash2 } from 'lucide-react';
+import { useState,useEffect } from 'react';
+import { Search, Plus, Edit,UserRoundPen ,Check,X, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
+
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,16 +16,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useDataStore } from '@/lib/data-store';
 import { toast } from 'sonner';
 import { Customer } from '@/lib/models';
+import { stringify } from 'querystring';
+import * as Models from '@/lib/models';
+import * as api from '@/lib/api';
+
 
 type CustomerForm = {
-  customer_code: string;
+  customer_code?: string;
   name: string;
   organization_type: string;
   primary_contact_name: string;
   email: string;
   phone: string;
   country: string;
-  status: 'active' | 'inactive';
+  status: string;
 };
 
 export default function CustomersPage() {
@@ -28,16 +37,38 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number| null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Customer| null>(null);
+  const [statuses, setStatuses] = useState<Models.Status[]>([]);
+  const router = useRouter();
+  
+
+  const getStatusValue = (status: Models.Status) => status.status_name ?? (status as any).name ?? String(status.id);
+  const getStatusLabel = (status: Models.Status) => status.status_name ?? (status as any).name ?? 'Unknown';
+
+  const resolveStatusValue = (status?: string) => {
+    if (!status) return '';
+
+    const normalized = status.toString().toLowerCase();
+    const matched = statuses.find((s) => {
+      const value = getStatusValue(s).toString().toLowerCase();
+      const label = getStatusLabel(s).toLowerCase();
+      return value === normalized || label === normalized || String(s.id) === normalized;
+    });
+
+    return matched ? getStatusValue(matched) : status;
+  };
+
   const [formData, setFormData] = useState<CustomerForm>({
-    customer_code: '',
+    // customer_code: (customers.length + 1).toString(),
     name: '',
     organization_type: '',
     primary_contact_name: '',
     email: '',
     phone: '',
     country: '',
-    status: 'active',
+    status: '',
   });
   const filtered = customers.filter((c) => {
     const term = search.toLowerCase();
@@ -51,8 +82,8 @@ export default function CustomersPage() {
     );
   });
   async function handleCreate() {
-   if (!formData.customer_code?.trim() || !formData.name.trim()) {
-      toast.error('Please fill in all fields');
+   if (!formData.name.trim() || !formData.status.trim()) {
+      toast.error('Please fill in all required fields');
       return;
     }
     try {
@@ -65,7 +96,7 @@ export default function CustomersPage() {
           email: '',
           phone: '',
           country: '',
-          status: 'active',
+          status: '',
         });
       setIsCreateOpen(false);
     } catch {
@@ -73,14 +104,58 @@ export default function CustomersPage() {
     }
   }
 
+  const prepareDelete = (item: Customer) => {
+    setDeleteTarget(item);
+    setDeleteConfirmOpen(true);
+  };
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    // if (!confirm('Are you sure you want to delete this customer?')) return;
+    try {
+      await deleteCustomer(deleteTarget.id);
+    } catch (err) {
+      console.error("Failed to delete hierarchy item", err);
+      toast.error("Failed to delete hierarchy item");
+    }finally {
+      setDeleteConfirmOpen(false);
+      setDeleteTarget(null);
+    }
+  }
+  const handleEdit = (customer: Customer) => {
+    setEditingId(customer.id);
+    console.log(customer.status);
+
+    setFormData({
+      customer_code: customer.customer_code || '',
+      name: customer.name || '',
+      organization_type: customer.organization_type || '',
+      primary_contact_name: customer.primary_contact_name || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      country: customer.country || '',
+      status: resolveStatusValue(customer.status),
+    });
+
+    setIsEditOpen(true);
+  };
+
   async function handleUpdate() {
     if (!editingId) return;
-    if (!formData.customer_code?.trim() || !formData.name.trim()) {
+
+    if (!formData.name.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
+
     try {
+      console.log("Updating customer:", {
+          id: editingId,
+          payload: formData,
+        });
       await updateCustomer(editingId, formData);
+      console.log('Current formData.status:', formData.status);
+
       setFormData({
         customer_code: '',
         name: '',
@@ -89,44 +164,38 @@ export default function CustomersPage() {
         email: '',
         phone: '',
         country: '',
-        status: 'active',
+        status: '',
       });
+
       setEditingId(null);
       setIsEditOpen(false);
-    } catch {
-      // Error handled by DataStore
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update customer');
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('Are you sure you want to delete this customer?')) return;
-    try {
-      await deleteCustomer(id);
-    } catch {
-      // Error handled by DataStore
-    }
-  }
-
-  function openEdit(customer: Customer) {
-    setEditingId(customer.id);
-
-    setFormData({
-      customer_code: customer.customer_code,
-      name: customer.name,
-      organization_type: customer.organization_type ?? '',
-      primary_contact_name: customer.primary_contact_name ?? '',
-      email: customer.email ?? '',
-      phone: customer.phone ?? '',
-      country: customer.country ?? '',
-      status: customer.status ?? 'active',
-    });
-
-    setIsEditOpen(true);
-  }
+  useEffect(() => {
+        const fetchStatuses = async () => {
+          try {
+            const [statusRes] = await Promise.all([
+              api.statuses.list("customers"),
+            ]);
+            console.log("FetchResponse", statusRes)
+            setStatuses(statusRes.data);
+          } catch (err) {
+            console.error("Failed to fetch statuses or hierarchy names", err);
+          } finally {
+          }
+        };
+  
+        fetchStatuses();
+      }, []);
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
+    
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
@@ -150,7 +219,170 @@ export default function CustomersPage() {
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-150">
+            <DialogHeader>
+              <DialogTitle>Add New Customer</DialogTitle>
+              <DialogDescription>
+                Enter customer information.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+
+                <div>
+                  <Label htmlFor="name">Customer Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="Customer name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="organization_type">
+                    Organization Type
+                  </Label>
+                  <Input
+                    id="organization_type"
+                    value={formData.organization_type || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        organization_type: e.target.value,
+                      })
+                    }
+                    placeholder="Government / Private"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="primary_contact_name">
+                    Primary Contact
+                  </Label>
+                  <Input
+                    id="primary_contact_name"
+                    value={formData.primary_contact_name || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        primary_contact_name: e.target.value,
+                      })
+                    }
+                    placeholder="Contact person"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="customer@example.com"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="+92xxxxxxxxxx"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    value={formData.country || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        country: e.target.value,
+                      })
+                    }
+                    placeholder="Pakistan"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        status: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {statuses.map((s) => {
+                        const statusValue = s.status_name ?? (s as any).name ?? String(s.id);
+                        const statusLabel = s.status_name ?? (s as any).name ?? 'Unknown';
+                        return (
+                          <SelectItem key={s.id} value={statusValue}>
+                            {statusLabel}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* <select
+                  id="status"
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      status: e.target.value,
+                    })
+                  }
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="prospect">Prospect</option>
+                </select> */}
+              </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateOpen(false)}
+              >
+                Cancel
+              </Button>
+
+              <Button onClick={handleCreate}>
+                Create Customer
+              </Button>
+            </div>
+          </DialogContent>
+          {/* <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Customer</DialogTitle>
               <DialogDescription>Enter customer details below</DialogDescription>
@@ -181,7 +413,7 @@ export default function CustomersPage() {
                 <Button onClick={handleCreate}>Create</Button>
               </div>
             </div>
-          </DialogContent>
+          </DialogContent> */}
         </Dialog>
       </div>
 
@@ -199,7 +431,8 @@ export default function CustomersPage() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Orders</TableHead>
+                  <TableHead>Projects</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -212,13 +445,12 @@ export default function CustomersPage() {
                   </TableRow>
                 ) : (
                   filtered.map((customer) => (
-                    <TableRow key={customer.id}>
+                    <TableRow key={customer.id} onClick={() => router.push(`/orders`)}>
                       <TableCell>{customer.customer_code}</TableCell>
 
                       <TableCell>
                         <div>
                           <p className="font-medium">{customer.name}</p>
-
                           {customer.organization_type && (
                             <p className="text-xs text-muted-foreground">
                               {customer.organization_type}
@@ -250,15 +482,40 @@ export default function CustomersPage() {
                       <TableCell>
                         <Badge
                           variant={
-                            customer.status === "active"
+                            customer.status === "Active"
                               ? "default"
                               : customer.status === "inactive"
                               ? "secondary"
+                              : customer.status === "Blacklisted"
+                              ? "destructive"
                               : "outline"
                           }
                         >
                           {customer.status}
                         </Badge>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">xxxx</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">xxxx</p>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2 text-accent">
+                            <UserRoundPen className='w-4.5 text-accent-foreground hover:text-blue-600'
+                              onClick={() => handleEdit(customer)}
+                            />
+                            |
+                            <Trash2 className='w-4.5 text-accent-foreground hover:text-red-600'
+                              onClick={() => prepareDelete(customer)}
+                            />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -269,174 +526,180 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      {/* <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+      
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <DialogContent className="sm:max-w-150">
+        <DialogHeader>
+          <DialogTitle>Edit Customer</DialogTitle>
+          <DialogDescription>
+            Update customer information.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+          <div>
+            <Label htmlFor="edit-name">Customer Name</Label>
+            <Input
+              id="edit-name"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder="Customer name"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-org-type">Organization Type</Label>
+            <Input
+              id="edit-org-type"
+              value={formData.organization_type || ""}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  organization_type: e.target.value,
+                })
+              }
+              placeholder="Government / Private / NGO"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-contact-person">
+              Primary Contact
+            </Label>
+            <Input
+              id="edit-contact-person"
+              value={formData.primary_contact_name || ""}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  primary_contact_name: e.target.value,
+                })
+              }
+              placeholder="Contact person name"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-email">Email</Label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={formData.email || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              placeholder="customer@example.com"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-phone">Phone</Label>
+            <Input
+              id="edit-phone"
+              value={formData.phone || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              placeholder="+92 XXX XXXXXXX"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-country">Country</Label>
+            <Input
+              id="edit-country"
+              value={formData.country || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, country: e.target.value })
+              }
+              placeholder="Pakistan"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-status">Status</Label>
+            {/* <select
+              id="edit-status"
+              value={formData.status || "active"}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="prospect">Prospect</option>
+            </select> */}
+
+            <Select 
+                value={formData.status}  
+                onValueChange={(value) => setFormData((prev) => ({...prev, status: value}))
+              }
+            >
+              {/* value={formData.unit_id.toString()}
+                onValueChange={(v) => setFormData({ ...formData, unit_id: parseInt(v) })} */}
+
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s.id} value={getStatusValue(s)}>
+                    {getStatusLabel(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsEditOpen(false)}
+          >
+            Cancel
+                <X />
+          </Button>
+
+          <Button onClick={handleUpdate}>
+            Update Customer
+                <Check />
+          </Button>
+        </div>
+      </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Customer</DialogTitle>
-            <DialogDescription>Update customer details</DialogDescription>
+            <DialogTitle>Confirm delete</DialogTitle>
+            <DialogDescription>
+              Delete Customer detail.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Customer name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-contact">Contact Info</Label>
-              <Input
-                id="edit-contact"
-                value={formData.contact_info}
-                onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })}
-                placeholder="Email or phone"
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone. Are you sure you want to continue?
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpdate}>Update</Button>
+              <Button variant="destructive" onClick={() => handleDelete()}>
+                Delete
+                <Trash2 />
+              </Button>
+               
             </div>
           </div>
         </DialogContent>
-      </Dialog> */}
-    <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-  <DialogContent className="sm:max-w-[600px]">
-    <DialogHeader>
-      <DialogTitle>Edit Customer</DialogTitle>
-      <DialogDescription>
-        Update customer information.
-      </DialogDescription>
-    </DialogHeader>
+      </Dialog>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-      <div>
-        <Label htmlFor="edit-customer-code">Customer Code</Label>
-        <Input
-          id="edit-customer-code"
-          value={formData.customer_code}
-          onChange={(e) =>
-            setFormData({ ...formData, customer_code: e.target.value })
-          }
-          placeholder="e.g. CUST-001"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-name">Customer Name</Label>
-        <Input
-          id="edit-name"
-          value={formData.name}
-          onChange={(e) =>
-            setFormData({ ...formData, name: e.target.value })
-          }
-          placeholder="Customer name"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-org-type">Organization Type</Label>
-        <Input
-          id="edit-org-type"
-          value={formData.organization_type || ""}
-          onChange={(e) =>
-            setFormData({
-              ...formData,
-              organization_type: e.target.value,
-            })
-          }
-          placeholder="Government / Private / NGO"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-contact-person">
-          Primary Contact
-        </Label>
-        <Input
-          id="edit-contact-person"
-          value={formData.primary_contact_name || ""}
-          onChange={(e) =>
-            setFormData({
-              ...formData,
-              primary_contact_name: e.target.value,
-            })
-          }
-          placeholder="Contact person name"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-email">Email</Label>
-        <Input
-          id="edit-email"
-          type="email"
-          value={formData.email || ""}
-          onChange={(e) =>
-            setFormData({ ...formData, email: e.target.value })
-          }
-          placeholder="customer@example.com"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-phone">Phone</Label>
-        <Input
-          id="edit-phone"
-          value={formData.phone || ""}
-          onChange={(e) =>
-            setFormData({ ...formData, phone: e.target.value })
-          }
-          placeholder="+92 XXX XXXXXXX"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-country">Country</Label>
-        <Input
-          id="edit-country"
-          value={formData.country || ""}
-          onChange={(e) =>
-            setFormData({ ...formData, country: e.target.value })
-          }
-          placeholder="Pakistan"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="edit-status">Status</Label>
-        <select
-          id="edit-status"
-          value={formData.status || "active"}
-          onChange={(e) =>
-            setFormData({ ...formData, status: e.target.value })
-          }
-          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="prospect">Prospect</option>
-        </select>
-      </div>
-    </div>
-
-    <div className="flex justify-end gap-2">
-      <Button
-        variant="outline"
-        onClick={() => setIsEditOpen(false)}
-      >
-        Cancel
-      </Button>
-
-      <Button onClick={handleUpdate}>
-        Update Customer
-      </Button>
-    </div>
-  </DialogContent>
-    </Dialog>
     </div>  
   );
 }

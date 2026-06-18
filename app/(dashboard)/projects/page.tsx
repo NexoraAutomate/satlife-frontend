@@ -233,7 +233,7 @@ export default function ProjectsPage(){
       <div className="">
           {statuses.length > 0 && (
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-7 items-stretch">
             {Project_status.map((item) => (
               <button
                 key={item.s_name}
@@ -322,7 +322,7 @@ export default function ProjectsPage(){
                   value={formData.owner_id.toString()}
                   onValueChange={(v) => setFormData({ ...formData, owner_id: parseInt(v) })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue placeholder="Select owner" />
                   </SelectTrigger>
                   <SelectContent>
@@ -341,7 +341,7 @@ export default function ProjectsPage(){
                   value={formData.order_id.toString()}
                   onValueChange={(v) => setFormData({ ...formData, order_id: parseInt(v) })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue placeholder="Select order (optional)" />
                   </SelectTrigger>
                   <SelectContent>
@@ -359,7 +359,7 @@ export default function ProjectsPage(){
                   value={formData.status_id.toString()}
                   onValueChange={(v) => setFormData({ ...formData, status_id: parseInt(v) })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -422,21 +422,14 @@ export default function ProjectsPage(){
                         <TableCell className="text-sm text-muted-foreground ">10%</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => { e.stopPropagation()
+                            
+                              <Edit className="h-4 w-4 text-accent-foreground hover:text-blue-600" 
+                                onClick={(e) => { e.stopPropagation()
                                 openEdit(project)}}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={(e) => { e.stopPropagation();handleDelete(project.id)}}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                                />
+
+                              <Trash2 className="h-4 w-4 text-accent-foreground hover:text-red-600" 
+                              onClick={(e) => { e.stopPropagation();handleDelete(project.id)}}/>
                           </div>
                         </TableCell>
                         {/* <Link href={`/projects/${project.id}`} className="absolute inset-0" /> */}
