@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useDataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, FileText, Calendar, Layers } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Search, Clock, AlertTriangle, Zap, Pause, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Clock, AlertTriangle, Pencil, Zap, Pause, CheckCircle } from 'lucide-react';
 import { StatusBadge } from '@/components/status-badge';
 import { EntityCards } from '@/components/entity-cards';
 import { EntityForm } from '@/components/entity-form';
@@ -60,7 +60,7 @@ const emptyOrderForm: OrderForm = {
 export default function CustomerDetailPage(){
     const params = useParams();
     const customerID = params.id as string;
-    const { customers, projects, systems, orders, loading, createSystem, deleteSystem, updateSystem } = useDataStore();
+    const { customers, projects, deleteOrder, updateOrder, createOrder, systems, orders, loading, createSystem, deleteSystem, updateSystem } = useDataStore();
     const customer = customers.find((c) => String(c.id) === customerID);
     const customerOrders = customer? orders.filter((o) => o.customer_id === customer.id): [];
     const orderIds = new Set(customerOrders.map((o) => o.id));
@@ -95,33 +95,126 @@ export default function CustomerDetailPage(){
     const [statuses, setStatuses] = useState<Models.Status[]>([]);
     const [loadingStatuses, setLoadingStatuses] = useState(true);
 
+ const filtered = orders.filter((o) => {
+    // const matchesSearch = o.order_number.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || o.status_id?.toString() === statusFilter;
+    return matchesStatus;
+  });
 
+  async function handleCreate() {
+    if (
+      !formData.title.trim() ||
+      !formData.order_date ||
+      !formData.currency.trim() ||
+      !formData.status_id
+    ) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await createOrder(formData);
+
+      setFormData(emptyOrderForm);
+      setIsCreateOpen(false);
+
+      // toast.success('Order created successfully');
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleUpdate() {
+    if (!editingId) return;
+
+    if (
+      !formData.title.trim() ||
+      !formData.order_date ||
+      !formData.currency.trim() ||
+      !formData.status_id
+    ) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await updateOrder(editingId, formData);
+
+      setFormData(emptyOrderForm);
+      setEditingId(null);
+      setIsEditOpen(false);
+
+      // toast.success('Order updated successfully');
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (
+      !confirm(
+        'Are you sure you want to delete this order? All related Projects will also get deleted.'
+      )
+    )
+      return;
+
+    try {
+      await deleteOrder(id);
+      toast.success('Order deleted successfully');
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function openEdit(order: typeof orders[number]) {
+    setEditingId(order.id);
+
+    setFormData({
+      order_number: order.order_number ?? '',
+      title: order.title ?? '',
+      description: order.description ?? '',
+      contract_number: order.contract_number ?? '',
+      po_number: order.po_number ?? '',
+      order_date: order.order_date ?? '',
+      delivery_date: order.delivery_date ?? '',
+      total_value: order.total_value ?? null,
+      currency: order.currency ?? '',
+      project_manager: order.project_manager ?? '',
+      remarks: order.remarks ?? '',
+      customer_id: order.customer_id ?? undefined, // <-- Missing
+      status_id: order.status_id ?? undefined,
+    });
+
+    setIsEditOpen(true);
+  }
     
-    if (!customer) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20">
-                <h2 className="text-xl font-semibold">Customer Not Found</h2>
-                <Link href="/customers" className="mt-2 text-sm text-primary underline">
-                    Back to Customers
-                </Link>
-            </div>
-            );
-        }
     useEffect(() => {
-            const fetchData = async () => {
-              try {
-                const statusRes = await api.statuses.list("orders");
-                setStatuses(statusRes.data);
-              } catch (err) {
-                console.error("Failed to fetch statuses or hierarchy names", err);
-              } finally {
-                setLoadingStatuses(false);
-              }
-            };
-      
-            fetchData();
-          }, []);
-        if (loading) return <div className="p-8 text-center">Loading...</div>;
+      const fetchData = async () => {
+        try {
+          const statusRes = await api.statuses.list("orders");
+          setStatuses(statusRes.data);
+        } catch (err) {
+          console.error("Failed to fetch statuses or hierarchy names", err);
+        } finally {
+          setLoadingStatuses(false);
+        }
+      };
+
+      fetchData();
+    }, []);
+
+    if (!customer) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <h2 className="text-xl font-semibold">Customer Not Found</h2>
+          <Link href="/customers" className="mt-2 text-sm text-primary underline">
+            Back to Customers
+          </Link>
+        </div>
+      );
+    }
+
+    if (loading) return <div className="p-8 text-center">Loading...</div>;
     
         return (
     <div className="space-y-6">
@@ -147,7 +240,7 @@ export default function CustomerDetailPage(){
         </Link>
         <div>
             <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage Customer Orders
+            <p className="text-sm text-muted-foreground mt-1">Manage Customer Orders</p>
         </div>
 
       {/* Project Info Cards */}
@@ -549,7 +642,7 @@ export default function CustomerDetailPage(){
                               : "bg-gray-100 text-gray-700 border border-gray-300"
                           }
                         >
-                          {order.status_name}
+                          {status?.name || "Unknown"}
                         </Badge>
                       </TableCell>
                       {/* <TableCell>

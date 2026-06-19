@@ -445,7 +445,7 @@ export default function CustomersPage() {
                   </TableRow>
                 ) : (
                   filtered.map((customer) => (
-                    <TableRow key={customer.id} onClick={() => router.push(`/orders`)}>
+                    <TableRow key={customer.id}   onClick={() => router.push(`/customers/${customer.id}`)}>
                       <TableCell>{customer.customer_code}</TableCell>
 
                       <TableCell>
