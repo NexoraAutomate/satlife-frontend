@@ -44,8 +44,8 @@ export default function CustomersPage() {
   const router = useRouter();
   
 
-  const getStatusValue = (status: Models.Status) => status.status_name ?? (status as any).name ?? String(status.id);
-  const getStatusLabel = (status: Models.Status) => status.status_name ?? (status as any).name ?? 'Unknown';
+  const getStatusValue = (status: Models.Status) => status.name ?? (status as any).name ?? String(status.id);
+  const getStatusLabel = (status: Models.Status) => status.name ?? (status as any).name ?? 'Unknown';
 
   const resolveStatusValue = (status?: string) => {
     if (!status) return '';
@@ -341,8 +341,8 @@ export default function CustomersPage() {
 
                     <SelectContent>
                       {statuses.map((s) => {
-                        const statusValue = s.status_name ?? (s as any).name ?? String(s.id);
-                        const statusLabel = s.status_name ?? (s as any).name ?? 'Unknown';
+                        const statusValue = s.name ?? (s as any).name ?? String(s.id);
+                        const statusLabel = s.name ?? (s as any).name ?? 'Unknown';
                         return (
                           <SelectItem key={s.id} value={statusValue}>
                             {statusLabel}
@@ -425,7 +425,7 @@ export default function CustomersPage() {
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+              <TableHeader  className='bg-slate-200 dark:bg-black hover:bg-slate-200'>
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Customer</TableHead>
@@ -508,12 +508,17 @@ export default function CustomersPage() {
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2 text-accent">
-                            <UserRoundPen className='w-4.5 text-accent-foreground hover:text-blue-600'
-                              onClick={() => handleEdit(customer)}
+                              <UserRoundPen className='w-4.5 text-accent-foreground hover:text-blue-600'
+                              onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(customer);}}
                             />
+                            
                             |
                             <Trash2 className='w-4.5 text-accent-foreground hover:text-red-600'
-                              onClick={() => prepareDelete(customer)}
+                              onClick={(e) => {
+                                    e.stopPropagation();
+                                    prepareDelete(customer);}}
                             />
                         </div>
                       </TableCell>

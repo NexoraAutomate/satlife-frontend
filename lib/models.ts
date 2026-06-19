@@ -40,7 +40,7 @@ export interface Role {
 // Status
 export interface Status {
   id: number
-  status_name: string
+  name: string
   description: string
   status_type: string
 }
