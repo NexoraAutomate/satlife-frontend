@@ -89,12 +89,12 @@ export default function SubsystemsPage() {
   const filtered = subsystems.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.description?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || s.status?.name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || s.status?.status_name === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const statusCounts = Object.keys(SUBSYSTEM_STATUSES).reduce((acc, status) => {
-    acc[status] = subsystems.filter(s => s.status?.name === status).length;
+    acc[status] = subsystems.filter(s => s.status?.status_name === status).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -333,7 +333,7 @@ export default function SubsystemsPage() {
                         <TableCell className="font-medium">{subsystem.name}</TableCell>
                         <TableCell>{system?.name || 'N/A'}</TableCell>
                         <TableCell>
-                          <StatusBadge status={subsystem.status?.name || 'Unknown'} />
+                          <StatusBadge status={subsystem.status?.status_name || 'Unknown'} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

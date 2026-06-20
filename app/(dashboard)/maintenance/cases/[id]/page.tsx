@@ -231,16 +231,16 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
+    <div className="space-y-8 ">
+      <div className="flex flex-col gap sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
           <Link href="/maintenance" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
             <ArrowLeft className="h-4 w-4" /> Back to maintenance cases
           </Link>
           <div className='pt-4 flex flex-col w-4xl '>
             <div className='flex px-1  items-center w-2xl h-10'>
               <InspectionPanel  className=' w-1/12 h-full'/>
-              <h1 className="text-3xl font-semibold tracking-tight  w-11/12 h-full">Maintenance Case Investigation</h1>
+              <h1 className="text-2xl font-bold tracking-tight  w-11/12 h-full">Maintenance Case Investigation</h1>
             </div>
             <p className="pl-16 text-sm text-muted-foreground ">
               Inspect suspected or confirmed faulty entities and manage the investigation lifecycle for this case.

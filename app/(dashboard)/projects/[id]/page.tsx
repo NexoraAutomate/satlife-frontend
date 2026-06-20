@@ -59,19 +59,19 @@ export default function ProjectDetailPage() {
       required: false,
       placeholder: 'Enter Part Number of System',
     },
-    // {
-    //   name: 'project_id',
-    //   label: 'Project',
-    //   type: 'select' as const,
-    //   required: true,
-    //   options: projects.map(p => ({ label: p.name, value: p.id })),
-    // },
     {
-      name: 'status_id',
+      name: 'project_id',
+      label: 'Project',
+      type: 'select' as const,
+      required: true,
+      options: projects.map(p => ({ label: p.name, value: p.id })),
+    },
+    {
+      name: 'id',
       label: 'Status',
       type: 'select' as const,
       required: true,
-      options: statuses.map(s => ({ label: s.name, value: s.id })),
+      options: statuses.map(s => ({ label: s.status_name, value: s.id })),
     },
 
   ];
@@ -81,7 +81,7 @@ export default function ProjectDetailPage() {
       toast.error('Project not found');
       return;
     }
-    if (!formData.name.trim() || !formData.description  || !formData.status_id) {
+    if (!formData.name.trim() || !formData.description  || !formData.id) {
           toast.error('Please fill in all required fields');
           return;
         }
@@ -92,7 +92,7 @@ export default function ProjectDetailPage() {
         name: formData.name,
         description: formData.description || '',
         project_id: formData.project_id ? Number(formData.project_id) : project.id,
-        status_id: Number(formData.status_id),
+        status_id: Number(formData.id),
         part_number:formData.partnumber,
         serial_number: formData.name && formData.partnumber
                         ? `${formData.name}-${formData.partnumber}`
@@ -220,7 +220,7 @@ export default function ProjectDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={project.status?.name || 'Unknown'} />
+              <StatusBadge status={project.status_name || 'Unknown'} />
             </div>
           </CardContent>
         </Card>

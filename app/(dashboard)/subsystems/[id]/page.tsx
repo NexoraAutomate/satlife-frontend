@@ -53,11 +53,11 @@ export default function SubsystemDetailPage() {
       placeholder: 'Enter Part Number of Module',
     },
     {
-      name: 'status_id',
+      name: 'id',
       label: 'Status',
       type: 'select' as const,
       required: true,
-      options: statuses.map(s => ({ label: s.name, value: s.id })),
+      options: statuses.map(s => ({ label: s.status_name, value: s.id })),
     },
   ];
 
@@ -72,7 +72,7 @@ export default function SubsystemDetailPage() {
         name: formData.name,
         description: formData.description || '',
         subsystem_id: subsystem.id,
-        status_id: Number(formData.status_id),
+        status_id: Number(formData.id),
         part_number:formData.partnumber,
         serial_number: formData.name && formData.partnumber
                         ? `${formData.name}-${formData.partnumber}`
@@ -195,7 +195,7 @@ export default function SubsystemDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={subsystem.status?.name || 'Unknown'} />
+              <StatusBadge status={subsystem.status?.status_name || 'Unknown'} />
             </div>
           </CardContent>
         </Card>

@@ -88,12 +88,12 @@ export default function ModulesPage() {
   const filtered = modules.filter((m) => {
     const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||
       m.description?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || m.status?.name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || m.status?.status_name === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const statusCounts = Object.keys(MODULE_STATUSES).reduce((acc, status) => {
-    acc[status] = modules.filter(m => m.status?.name === status).length;
+    acc[status] = modules.filter(m => m.status?.status_name === status).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -330,7 +330,7 @@ export default function ModulesPage() {
                         <TableCell className="font-medium">{module.name}</TableCell>
                         <TableCell>{subsystem?.name || 'N/A'}</TableCell>
                         <TableCell>
-                          <StatusBadge status={module.status?.name || 'Unknown'} />
+                          <StatusBadge status={module.status?.status_name || 'Unknown'} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

@@ -27,7 +27,7 @@ function TreeNode({ node, onSelect, onMarkHealthy }: { node: InvestigationTreeNo
   console.log("Has Children:   ", hasChildren)
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-background p-2">
+    <div className="space-y-2 rounded-lg border-b bg-background hover:bg-blue-50 p-2">
       <div className="flex items-center left-0">
         {hasChildren ? (
           <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => setOpen((prev) => !prev)}>
@@ -84,7 +84,7 @@ export function InvestigationTree({ nodes, onSelect, onMarkHealthy }: Investigat
   }
 
   return (
-    <div className="space-y-3">
+    <div className="">
       {nodes.map((node) => (
         <TreeNode key={node.id} node={node} onSelect={onSelect} onMarkHealthy={onMarkHealthy} />
       ))}

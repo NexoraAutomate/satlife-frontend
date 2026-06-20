@@ -87,12 +87,12 @@ export default function ComponentsPage() {
   const filtered = components.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.description?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || c.status?.name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || c.status?.status_name === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const statusCounts = Object.keys(COMPONENT_STATUSES).reduce((acc, status) => {
-    acc[status] = components.filter(c => c.status?.name === status).length;
+    acc[status] = components.filter(c => c.status?.status_name === status).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -329,7 +329,7 @@ export default function ComponentsPage() {
                         <TableCell className="font-medium">{component.name}</TableCell>
                         <TableCell>{unit?.name || 'N/A'}</TableCell>
                         <TableCell>
-                          <StatusBadge status={component.status?.name || 'Unknown'} />
+                          <StatusBadge status={component.status?.status_name || 'Unknown'} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

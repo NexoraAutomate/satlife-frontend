@@ -55,11 +55,11 @@ export default function ModuleDetailPage() {
       placeholder: 'Enter Part Number of Unit',
     },
     {
-      name: 'status_id',
+      name: 'id',
       label: 'Status',
       type: 'select' as const,
       required: true,
-      options: statuses.map(s => ({ label: s.name, value: s.id })),
+      options: statuses.map(s => ({ label: s.status_name, value: s.id })),
     },
   ];
 
@@ -74,7 +74,7 @@ export default function ModuleDetailPage() {
         name: formData.name,
         description: formData.description || '',
         module_id: module.id,
-        status_id: Number(formData.status_id),
+        status_id: Number(formData.id),
         part_number:formData.partnumber,
         serial_number: formData.name && formData.partnumber
                         ? `${formData.name}-${formData.partnumber}`
@@ -197,7 +197,7 @@ export default function ModuleDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={module.status?.name || 'Unknown'} />
+              <StatusBadge status={module.status?.status_name || 'Unknown'} />
             </div>
           </CardContent>
         </Card>

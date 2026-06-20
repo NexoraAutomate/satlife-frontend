@@ -45,8 +45,8 @@ export function AppSidebar() {
           <Satellite className="h-5 w-5 text-sidebar-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-base font-semibold tracking-tight text-sidebar-foreground">SatLife</h1>
-          <p className="text-xs text-sidebar-foreground/60">Lifecycle Manager</p>
+          <h1 className="text-base font-semibold tracking-tight text-sidebar-foreground">SSDLS</h1>
+          <p className="text-xs text-sidebar-foreground/60">Product Lifecycle Management System </p>
         </div>
       </div>
 

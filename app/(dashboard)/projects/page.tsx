@@ -207,7 +207,9 @@ export default function ProjectsPage(){
 
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
-  const statusNames = statuses.map((status) => status.name);
+  const statusNames = statuses.map((status) => status.status_name);
+  console.log("statusNames", statusNames);
+  
   statusNames.unshift("Total");
   const Project_status = statusNames.map((status) => ({
       s_name: status,
@@ -365,7 +367,7 @@ export default function ProjectsPage(){
                   <SelectContent>
                     {statuses.map((s) => (
                       <SelectItem key={s.id} value={s.id.toString()}>
-                        {s.name}
+                        {s.status_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -416,7 +418,7 @@ export default function ProjectsPage(){
                       <TableRow key={project.id}   onClick={() => router.push(`/projects/${project.id}`)}>
                         <TableCell className="font-medium">{project.name}</TableCell>
                         <TableCell>{owner?.full_name || 'N/A'}</TableCell>
-                        <TableCell><StatusBadge status={status?.name || 'Unknown'} /></TableCell>
+                        <TableCell><StatusBadge status={status?.status_name || 'Unknown'} /></TableCell>
                         <TableCell className="text-sm text-muted-foreground">{new Date(project.start_date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{new Date(project.end_date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-sm text-muted-foreground ">10%</TableCell>
@@ -514,7 +516,7 @@ export default function ProjectsPage(){
                 <SelectContent>
                   {statuses.map((s) => (
                     <SelectItem key={s.id} value={s.id.toString()}>
-                      {s.name}
+                      {s.status_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

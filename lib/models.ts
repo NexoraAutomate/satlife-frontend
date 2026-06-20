@@ -24,10 +24,12 @@ export interface Customer {
   address?: string | null
   country?: string | null
   notes?: string | null
-  status: string
+  status_id?: number;
   created_by?: number | null
   created_at: string
   updated_at: string
+  status_name: string
+
 }
 
 // Role
@@ -40,7 +42,7 @@ export interface Role {
 // Status
 export interface Status {
   id: number
-  name: string
+  status_name: string
   description: string
   status_type: string
 }
@@ -64,6 +66,7 @@ export interface Order {
   created_at: string
   customer?: Customer
   status?: Status
+  status_name: string
 }
 
 export interface OrderCreate {
@@ -111,7 +114,7 @@ export interface Project {
   updated_at: string
   owner?: User
   order?: Order
-  status_name?: Status
+  status_name?: string
   systems?: System[]
 }
 
@@ -128,6 +131,9 @@ export interface System {
   created_at: string
   project?: Project
   status?: Status
+  status_name?: string
+
+
   
 }
 

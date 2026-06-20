@@ -45,8 +45,8 @@ const emptyOrderForm: OrderForm = {
   remarks: '',
   customer_id: undefined,
   status_id: undefined
- 
 };
+
 export default function OrdersPage() {
   const {orders, customers, loading, createOrder, updateOrder, deleteOrder} = useDataStore();
   const [search, setSearch] = useState('');
@@ -159,16 +159,16 @@ export default function OrdersPage() {
         const res = await api.statuses.list("orders"); //
         
         // const cus = await api.customers.list( 0, 100);
-        console.log("customer", customers)
-        console.log("orders", orders)
-        console.log(res.data) 
+        // console.log("customer", customers)
+        // console.log("orders", orders)
+        // console.log(res.data) 
         setStatuses(res.data);
         // setcustomer(cus.data);
       } catch (err) {
         console.error("Failed to fetch statuses", err);
       } finally {
         setLoadingStatuses(false);
-        console.log("customer", customers)
+        // console.log("customer", customers)
       }
     };
 
@@ -202,7 +202,7 @@ export default function OrdersPage() {
             <SelectItem value="all">All Statuses</SelectItem>
             {statuses.map((s) => ( 
               <SelectItem key={s.id} value={s.id.toString()}>
-                {s.name}
+                {s.status_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -224,19 +224,6 @@ export default function OrdersPage() {
 
             <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
               <div className="grid gap-5 md:grid-cols-2">
-                {/* <div className="space-y-2">
-                  <Label htmlFor="order_number">Order Number</Label>
-                  <Input
-                    id="order_number"
-                    value={formData.order_number}
-                    onChange={(e) =>
-                      setFormData({ ...formData, order_number: e.target.value })
-                    }
-                    placeholder="ORD-001"
-                    className="h-10"
-                  />
-                </div> */}
-
                 <div className="space-y-2">
                   <Label htmlFor="customer">Customer</Label>
                   <Select
@@ -278,7 +265,7 @@ export default function OrdersPage() {
                     <SelectContent>
                       {statuses.map((s) => (
                         <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name}
+                          {s.status_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -496,17 +483,17 @@ export default function OrdersPage() {
                       <TableCell>
                         <Badge
                           className={
-                            status?.name === "Created"
+                            status?. status_name === "Created"
                               ? "bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-100"
-                              : status?.name === "Confirmed"
+                              : status?.status_name === "Confirmed"
                               ? "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-100"
-                              : status?.name === "Processing"
+                              : status?.status_name === "Processing"
                               ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100"
-                              : status?.name === "Shipped"
+                              : status?.status_name === "Shipped"
                               ? "bg-violet-100 text-violet-800 border border-violet-300 hover:bg-violet-100"
-                              : status?.name === "Delivered"
+                              : status?.status_name === "Delivered"
                               ? "bg-green-100 text-green-800 border border-green-300 hover:bg-green-100"
-                              : status?.name === "Cancelled"
+                              : status?.status_name === "Cancelled"
                               ? "bg-red-100 text-red-800 border border-red-300 hover:bg-red-100"
                               : "bg-gray-100 text-gray-700 border border-gray-300"
                           }
@@ -593,7 +580,7 @@ export default function OrdersPage() {
               </div>
 
               {/* Status */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>Status</Label>
 
                 <Select
@@ -615,12 +602,69 @@ export default function OrdersPage() {
                         key={s.id}
                         value={s.id.toString()}
                       >
-                        {s.name}
+                        {s.status_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
+              <div>
+            <Label htmlFor="edit-status">Status</Label>
+            {/* <select
+              id="edit-status"
+              value={formData.status || "active"}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="prospect">Prospect</option>
+            </select> */}
+
+            {/* <Select 
+                value={formData.status}  
+                onValueChange={(value) => setFormData((prev) => ({...prev, status: value}))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s.id} value={getStatusValue(s)}>
+                    {getStatusLabel(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select> */}
+            <Select
+              value={formData.status_id?.toString() ?? ""}
+              onValueChange={(v) =>
+                setFormData({
+                  ...formData,
+                  status_id: Number(v),
+                })
+              }
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem
+                    key={s.id}
+                    value={s.id.toString()}
+                  >
+                    {s.status_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
               {/* Title */}
               <div className="space-y-2">

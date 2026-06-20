@@ -62,11 +62,11 @@ export default function UnitDetailPage() {
     //   placeholder: 'Enter component SKU',
     // },
     {
-      name: 'status_id',
+      name: 'id',
       label: 'Status',
       type: 'select' as const,
       required: true,
-      options: statuses.map(s => ({ label: s.name, value: s.id })),
+      options: statuses.map(s => ({ label: s.status_name, value: s.id })),
     },
   ];
 
@@ -82,7 +82,7 @@ export default function UnitDetailPage() {
         description: formData.description || '',
         sku: formData.sku || '',
         unit_id: unit.id,
-        status_id: Number(formData.status_id),
+        status_id: Number(formData.id),
         part_number:formData.partnumber,
         serial_number: formData.name && formData.partnumber
                         ? `${formData.name}-${formData.partnumber}`
@@ -207,7 +207,7 @@ export default function UnitDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={unit.status?.name || 'Unknown'} />
+              <StatusBadge status={unit.status?.status_name || 'Unknown'} />
             </div>
           </CardContent>
         </Card>

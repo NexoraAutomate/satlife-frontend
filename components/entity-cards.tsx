@@ -12,7 +12,7 @@ interface EntityCardsProps {
   entities: Array<{
     id: number;
     name: string;
-    status?: { name: string };
+    status?: { status_name: string };
     description?: string;
   }>;
   onAdd: () => void;
@@ -65,7 +65,7 @@ export function EntityCards({
                         )}
                       </div>
                       {entity.status && (
-                        <StatusBadge status={entity.status.name} />
+                        <StatusBadge status={entity.status.status_name} />
                       )}
                     </div>
 

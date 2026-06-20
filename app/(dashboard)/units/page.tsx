@@ -87,12 +87,12 @@ export default function UnitsPage() {
   const filtered = units.filter((u) => {
     const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.description?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || u.status?.name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || u.status?.status_name === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const statusCounts = Object.keys(UNIT_STATUSES).reduce((acc, status) => {
-    acc[status] = units.filter(u => u.status?.name === status).length;
+    acc[status] = units.filter(u => u.status?.status_name === status).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -313,7 +313,7 @@ export default function UnitsPage() {
                         <TableCell className="font-medium">{unit.name}</TableCell>
                         <TableCell>{module?.name || 'N/A'}</TableCell>
                         <TableCell>
-                          <StatusBadge status={unit.status?.name || 'Unknown'} />
+                          <StatusBadge status={unit.status?.status_name || 'Unknown'} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

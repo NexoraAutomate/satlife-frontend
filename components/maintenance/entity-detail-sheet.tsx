@@ -76,6 +76,10 @@ export function EntityDetailSheet({
               <Button variant="secondary" onClick={onMarkHealthy} disabled={!entity || entity.status === 'healthy'}>
                 Mark Healthy
               </Button>
+              
+              <Button variant="secondary" onClick={onMarkHealthy} disabled={!entity || entity.status === 'healthy'}>
+                Resolve
+              </Button>
             </div>
           </div>
         )}

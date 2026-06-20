@@ -7,7 +7,7 @@ import { useDataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowLeft, FileText, Calendar, Layers } from 'lucide-react';
+import { ArrowLeft, FileText, Calendar, Layers, CircleArrowLeft } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -73,6 +73,7 @@ export default function CustomerDetailPage(){
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formData, setFormData] = useState<OrderForm>(emptyOrderForm);
     const totalProjects = customerProjects.length;
+    
     const [
     Created,
     Confirmed,
@@ -89,13 +90,24 @@ export default function CustomerDetailPage(){
     "Cancelled",
     ].map(
     (status) =>
-        customerOrders.filter((o) => o.status?.name === status).length
+        customerOrders.filter((o) => o.status?.status_name === status).length
     );  
 
     const [statuses, setStatuses] = useState<Models.Status[]>([]);
+    const orderStatusCounts = statuses.map((status) => ({
+            id: status.id,
+            name: status.status_name,
+            count: customerOrders.filter(
+                (order) => order.status?.status_name === status.status_name
+            ).length,
+            }));
+    console.log("orderStatusCounts",orderStatusCounts)
+    console.log("customerOrders",customerOrders)
+    
+    
     const [loadingStatuses, setLoadingStatuses] = useState(true);
-
- const filtered = orders.filter((o) => {
+ 
+    const filtered = customerOrders.filter((o) => {
     // const matchesSearch = o.order_number.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || o.status_id?.toString() === statusFilter;
     return matchesStatus;
@@ -203,6 +215,7 @@ export default function CustomerDetailPage(){
       fetchData();
     }, []);
 
+    
     if (!customer) {
       return (
         <div className="flex flex-col items-center justify-center py-20">
@@ -218,723 +231,728 @@ export default function CustomerDetailPage(){
     
         return (
     <div className="space-y-6">
-      <Breadcrumb>
+
+        <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem>
+            <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/customers">Customers</Link>
+                <Link href="/customers">Customers</Link>
             </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
             <BreadcrumbPage>{customer.name}</BreadcrumbPage>
-          </BreadcrumbItem>
+            </BreadcrumbItem>
         </BreadcrumbList>
-      </Breadcrumb>
+        </Breadcrumb>
 
-      <div className="flex items-center gap-4">
-        <Link href="/customers">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage Customer Orders</p>
-        </div>
+        <div className="flex flex-col justify-between gap-4">
+            <div className='flex  justify-between items-center'>
 
-      {/* Project Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <FileText className="h-5 w-5 text-primary" />
+                <div className=''>
+                    <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Manage Customer Orders</p>
+                </div>
+                
+                <Link href="/customers" className='flex  w-1/12'>
+                    <Button variant="ghost" size="icon" className=" w-full bg-mist-100">
+                       <CircleArrowLeft className="flex " />Back
+                    </Button>
+                </Link>
+
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Organization</p>
-              <p className="text-sm font-medium">{customer?.organization_type}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Calendar className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Orders</p>
-              <p className="text-sm font-medium">{customerOrders.length || 0 }</p>
-              <p className="text-sm font-medium">Created : {Created || 0 }</p>
-              <p className="text-sm font-medium">Confirmed : {Confirmed || 0 }</p>
-              <p className="text-sm font-medium">Processing : {Processing || 0 }</p>
-              <p className="text-sm font-medium">Shipped : {Shipped || 0 }</p>
-              <p className="text-sm font-medium">Delivered : {Delivered || 0 }</p>
-              <p className="text-sm font-medium">Cancelled : {Cancelled || 0 }</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Layers className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Projects</p>
-              <p className="text-sm font-medium">{customerProjects.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <FileText className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={customer.status || 'Unknown'} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            
+               
 
-      {/* Systems Cards */}
-      {/* <EntityCards
-        title="Systems"
-        description={`Manage systems for ${project.name}`}
-        entities={projectSystems}
-        onAdd={() => setIsAddOpen(true)}
-        onDelete={handleDeleteSystem}
-        detailPath={(id) => `/systems/${id}`}
-        addButtonLabel="Add System"
-        emptyMessage="No systems yet. Click 'Add System' to create one."
-      /> */}
-
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <p className="text-muted-foreground mt-2">Manage all orders</p>
-      </div>
-
-      <div className="flex gap-4 items-center">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by order number..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {statuses.map((s) => ( 
-              <SelectItem key={s.id} value={s.id.toString()}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Order
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent className="sm:max-w-190 p-0">
-            <DialogHeader className="border-b px-6 py-4">
-              <DialogTitle className="text-lg font-semibold">Create Order</DialogTitle>
-              <DialogDescription>Enter order details below.</DialogDescription>
-            </DialogHeader>
-
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                {/* <div className="space-y-2">
-                  <Label htmlFor="order_number">Order Number</Label>
-                  <Input
-                    id="order_number"
-                    value={formData.order_number}
-                    onChange={(e) =>
-                      setFormData({ ...formData, order_number: e.target.value })
-                    }
-                    placeholder="ORD-001"
-                    className="h-10"
-                  />
-                </div> */}
-
-                <div className="space-y-2">
-                  <Label htmlFor="customer">Customer</Label>
-                  <Select
-                    value={formData.customer_id?.toString() ?? ""}
-                    onValueChange={(v) =>
-                      setFormData({
-                        ...formData,
-                        customer_id: Number(v),
-                      })
-                    }
-                  >
-                    <SelectTrigger id="customer" className="h-10">
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {customers.map((c) => (
-                          <SelectItem
-                            key={c.id}
-                            value={c.id.toString()}
-                          >
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status_id?.toString()}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, status_id: parseInt(v, 10) })
-                    }
-                  >
-                    <SelectTrigger id="status" className="h-10">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statuses.map((s) => (
-                        <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    placeholder="Order title"
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <textarea
-                    id="description"
-                    className="min-h-22.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={formData.description ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contract_number">Contract Number</Label>
-                  <Input
-                    id="contract_number"
-                    value={formData.contract_number ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contract_number: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="po_number">PO Number</Label>
-                  <Input
-                    id="po_number"
-                    value={formData.po_number ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, po_number: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="order_date">Order Date</Label>
-                  <Input
-                    id="order_date"
-                    type="date"
-                    value={formData.order_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, order_date: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="delivery_date">Delivery Date</Label>
-                  <Input
-                    id="delivery_date"
-                    type="date"
-                    value={formData.delivery_date ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, delivery_date: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="total_value">Total Value</Label>
-                  <Input
-                    id="total_value"
-                    type="number"
-                    value={formData.total_value ?? ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        total_value: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
-                  <Input
-                    id="currency"
-                    value={formData.currency}
-                    onChange={(e) =>
-                      setFormData({ ...formData, currency: e.target.value })
-                    }
-                    placeholder="USD / PKR / EUR"
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="project_manager">Project Manager</Label>
-                  <Input
-                    id="project_manager"
-                    value={formData.project_manager ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, project_manager: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="remarks">Remarks</Label>
-                  <textarea
-                    id="remarks"
-                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={formData.remarks ?? ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, remarks: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t px-6 py-4">
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreate}>Create</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-    </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>All Orders</CardTitle>
-          <CardDescription>Total: {filtered.length}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className='bg-slate-200 dark:bg-black hover:bg-slate-200'>
-                  <TableHead>Order No.</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Contract / PO</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Delivery</TableHead>
-                  <TableHead>PM</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      No orders found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map((order) => {
-                    const customer = customers.find((c) => c.id === order.customer_id);
-                    const status = statuses.find((s) => s.id === order.status_id);
-                    return (
-                      <TableRow key={order.id} >
-                        <TableCell className="font-medium">
-                        {order.order_number}
-                      </TableCell>
-
-                      <TableCell>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Organization */}
+                <Card className="shadow-sm">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <FileText className="h-5 w-5 text-primary" />
+                        </div>
                         <div>
-                          <p className="font-medium">{order.title}</p>
-                          {order.description && (
-                            <p className="text-xs text-muted-foreground truncate max-w-62.5">
-                              {order.description}
-                            </p>
-                          )}
+                        <p className="text-xs text-muted-foreground">Organization</p>
+                        <p className="text-sm font-medium">{customer?.organization_type || "Not Specified"}</p>
                         </div>
-                      </TableCell>
-
-                      <TableCell>
-                        {customer?.name || "N/A"}
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="text-sm">
-                          <p>{order.contract_number || "-"}</p>
-                          <p className="text-muted-foreground">
-                            {order.po_number || "-"}
-                          </p>
+                    </CardContent>
+                </Card>
+                {/* Total Orders */}
+                <Card className="shadow-sm">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Calendar className="h-5 w-5 text-primary" />
                         </div>
-                      </TableCell>
+                        <div>
+                        <p className="text-xs text-muted-foreground">Total Orders</p>
+                        <p className="text-sm font-medium">{customerOrders.length || 0 }</p>
+                            {orderStatusCounts.map((status) => (
+                            <div key={status.id}>
+                                {status.name}: {status.count}
+                            </div>
+                            ))}
 
-                      <TableCell>
-                        {order.total_value
-                          ? `${order.currency} ${order.total_value.toLocaleString()}`
-                          : "-"}
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge
-                          className={
-                            status?.name === "Created"
-                              ? "bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-100"
-                              : status?.name === "Confirmed"
-                              ? "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-100"
-                              : status?.name === "Processing"
-                              ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100"
-                              : status?.name === "Shipped"
-                              ? "bg-violet-100 text-violet-800 border border-violet-300 hover:bg-violet-100"
-                              : status?.name === "Delivered"
-                              ? "bg-green-100 text-green-800 border border-green-300 hover:bg-green-100"
-                              : status?.name === "Cancelled"
-                              ? "bg-red-100 text-red-800 border border-red-300 hover:bg-red-100"
-                              : "bg-gray-100 text-gray-700 border border-gray-300"
-                          }
-                        >
-                          {status?.name || "Unknown"}
-                        </Badge>
-                      </TableCell>
-                      {/* <TableCell>
-                        {status?.name || "N/A"}
-                      </TableCell> */}
-
-                      <TableCell>
-                        {order.delivery_date
-                          ? new Date(order.delivery_date).toLocaleDateString()
-                          : "-"}
-                      </TableCell>
-
-                      <TableCell>
-                        {order.project_manager || "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2 text-accent">
-                            <Pencil  className='w-4.5 text-accent-foreground hover:text-blue-600'
-                              onClick={() => openEdit(order)}
-                            />
-                            |
-                            <Trash2 className='w-4.5 text-accent-foreground hover:text-red-600'
-                              onClick={() => handleDelete(order.id)}
-                            />
+                        {/* <p className="text-sm font-medium">Created : {orderStatusCounts.name || 0 }</p>
+                        <p className="text-sm font-medium">Confirmed : {Confirmed || 0 }</p>
+                        <p className="text-sm font-medium">Processing : {Processing || 0 }</p>
+                        <p className="text-sm font-medium">Shipped : {Shipped || 0 }</p>
+                        <p className="text-sm font-medium">Delivered : {Delivered || 0 }</p>
+                        <p className="text-sm font-medium">Cancelled : {Cancelled || 0 }</p> */}
                         </div>
-                      </TableCell>
-                      </TableRow>   
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-190 p-0">
-          <DialogHeader className="border-b px-6 py-4">
-            <DialogTitle className="text-lg font-semibold">
-              Edit Order
-            </DialogTitle>
-            <DialogDescription>
-              Update the order details below.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-            <div className="grid gap-5 md:grid-cols-2">
-
-              {/* Customer */}
-              <div className="space-y-2">
-                <Label htmlFor="edit_customer">Customer</Label>
-
-                <Select
-                  value={formData.customer_id?.toString() ?? ""}
-                  onValueChange={(v) =>
-                    setFormData({
-                      ...formData,
-                      customer_id: Number(v),
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {customers.map((c) => (
-                      <SelectItem
-                        key={c.id}
-                        value={c.id.toString()}
-                      >
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Status */}
-              <div className="space-y-2">
-                <Label>Status</Label>
-
-                <Select
-                  value={formData.status_id?.toString() ?? ""}
-                  onValueChange={(v) =>
-                    setFormData({
-                      ...formData,
-                      status_id: Number(v),
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem
-                        key={s.id}
-                        value={s.id.toString()}
-                      >
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Title */}
-              <div className="space-y-2">
-                <Label>Title</Label>
-
-                <Input
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      title: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Description</Label>
-
-                <textarea
-                  className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={formData.description ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Contract */}
-              <div className="space-y-2">
-                <Label>Contract Number</Label>
-
-                <Input
-                  value={formData.contract_number ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      contract_number: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* PO */}
-              <div className="space-y-2">
-                <Label>PO Number</Label>
-
-                <Input
-                  value={formData.po_number ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      po_number: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Order Date */}
-              <div className="space-y-2">
-                <Label>Order Date</Label>
-
-                <Input
-                  type="date"
-                  value={formData.order_date}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      order_date: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Delivery Date */}
-              <div className="space-y-2">
-                <Label>Delivery Date</Label>
-
-                <Input
-                  type="date"
-                  value={formData.delivery_date ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      delivery_date: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Total Value */}
-              <div className="space-y-2">
-                <Label>Total Value</Label>
-
-                <Input
-                  type="number"
-                  value={formData.total_value ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      total_value:
-                        e.target.value === ""
-                          ? null
-                          : Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
-
-              {/* Currency */}
-              <div className="space-y-2">
-                <Label>Currency</Label>
-
-                <Input
-                  value={formData.currency}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      currency: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Project Manager */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Project Manager</Label>
-
-                <Input
-                  value={formData.project_manager ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      project_manager: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Remarks */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Remarks</Label>
-
-                <textarea
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={formData.remarks ?? ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      remarks: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
+                    </CardContent>
+                </Card>
+                {/* Total Projects */}
+                <Card className="shadow-sm">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Layers className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                        <p className="text-xs text-muted-foreground">Total Projects</p>
+                        <p className="text-sm font-medium">{customerProjects.length}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                {/* Status */}
+                <Card className="shadow-sm">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <StatusBadge status={customer.status_name || 'Unknown'} />
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
-          </div>
 
-          <div className="flex justify-end gap-2 border-t px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsEditOpen(false)}
-            >
-              Cancel
-            </Button>
+            <div className="space-y-8">
+            {/* <div>
+                <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+                <p className="text-muted-foreground mt-2">Manage all orders</p>
+            </div> */}
 
-            <Button onClick={handleUpdate}>
-              Update Order
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
+            <div className="flex gap-4 items-center">
+                <div className="flex-1 relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search by order number..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {statuses.map((s) => ( 
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                        {s.status_name}
+                    </SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                    <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Order
+                    </Button>
+                </DialogTrigger>
+
+                <DialogContent className="sm:max-w-190 p-0">
+                    <DialogHeader className="border-b px-6 py-4">
+                    <DialogTitle className="text-lg font-semibold">Create Order</DialogTitle>
+                    <DialogDescription>Enter order details below.</DialogDescription>
+                    </DialogHeader>
+
+                    <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+                    <div className="grid gap-5 md:grid-cols-2">
+                        {/* <div className="space-y-2">
+                        <Label htmlFor="order_number">Order Number</Label>
+                        <Input
+                            id="order_number"
+                            value={formData.order_number}
+                            onChange={(e) =>
+                            setFormData({ ...formData, order_number: e.target.value })
+                            }
+                            placeholder="ORD-001"
+                            className="h-10"
+                        />
+                        </div> */}
+
+                        <div className="space-y-2">
+                        <Label htmlFor="customer">Customer</Label>
+                        <Select
+                            value={formData.customer_id?.toString() ?? ""}
+                            onValueChange={(v) =>
+                            setFormData({
+                                ...formData,
+                                customer_id: Number(v),
+                            })
+                            }
+                        >
+                            <SelectTrigger id="customer" className="h-10">
+                            <SelectValue placeholder="Select customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {customers.map((c) => (
+                                <SelectItem
+                                    key={c.id}
+                                    value={c.id.toString()}
+                                >
+                                    {c.name}
+                                </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="status">Status</Label>
+                        <Select
+                            value={formData.status_id?.toString()}
+                            onValueChange={(v) =>
+                            setFormData({ ...formData, status_id: parseInt(v, 10) })
+                            }
+                        >
+                            <SelectTrigger id="status" className="h-10">
+                            <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {statuses.map((s) => (
+                                <SelectItem key={s.id} value={s.id.toString()}>
+                                {s.status_name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="title">Title</Label>
+                        <Input
+                            id="title"
+                            value={formData.title}
+                            onChange={(e) =>
+                            setFormData({ ...formData, title: e.target.value })
+                            }
+                            placeholder="Order title"
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="description">Description</Label>
+                        <textarea
+                            id="description"
+                            className="min-h-22.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            value={formData.description ?? ""}
+                            onChange={(e) =>
+                            setFormData({ ...formData, description: e.target.value })
+                            }
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="contract_number">Contract Number</Label>
+                        <Input
+                            id="contract_number"
+                            value={formData.contract_number ?? ""}
+                            onChange={(e) =>
+                            setFormData({ ...formData, contract_number: e.target.value })
+                            }
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="po_number">PO Number</Label>
+                        <Input
+                            id="po_number"
+                            value={formData.po_number ?? ""}
+                            onChange={(e) =>
+                            setFormData({ ...formData, po_number: e.target.value })
+                            }
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="order_date">Order Date</Label>
+                        <Input
+                            id="order_date"
+                            type="date"
+                            value={formData.order_date}
+                            onChange={(e) =>
+                            setFormData({ ...formData, order_date: e.target.value })
+                            }
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="delivery_date">Delivery Date</Label>
+                        <Input
+                            id="delivery_date"
+                            type="date"
+                            value={formData.delivery_date ?? ""}
+                            onChange={(e) =>
+                            setFormData({ ...formData, delivery_date: e.target.value })
+                            }
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="total_value">Total Value</Label>
+                        <Input
+                            id="total_value"
+                            type="number"
+                            value={formData.total_value ?? ""}
+                            onChange={(e) =>
+                            setFormData({
+                                ...formData,
+                                total_value: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                            }
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="currency">Currency</Label>
+                        <Input
+                            id="currency"
+                            value={formData.currency}
+                            onChange={(e) =>
+                            setFormData({ ...formData, currency: e.target.value })
+                            }
+                            placeholder="USD / PKR / EUR"
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="project_manager">Project Manager</Label>
+                        <Input
+                            id="project_manager"
+                            value={formData.project_manager ?? ""}
+                            onChange={(e) =>
+                            setFormData({ ...formData, project_manager: e.target.value })
+                            }
+                            className="h-10"
+                        />
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="remarks">Remarks</Label>
+                        <textarea
+                            id="remarks"
+                            className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            value={formData.remarks ?? ""}
+                            onChange={(e) =>
+                            setFormData({ ...formData, remarks: e.target.value })
+                            }
+                        />
+                        </div>
+                    </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 border-t px-6 py-4">
+                    <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleCreate}>Create</Button>
+                    </div>
+                </DialogContent>
+                </Dialog>
+            </div>
+
+            <Card>
+                <CardHeader>
+                <CardTitle>All Orders</CardTitle>
+                <CardDescription>Total: {filtered.length}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <div className="overflow-x-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow className='bg-slate-200 dark:bg-black hover:bg-slate-200'>
+                        <TableHead>Order No.</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Contract / PO</TableHead>
+                        <TableHead>Value</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Delivery</TableHead>
+                        <TableHead>PM</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filtered.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            No orders found
+                            </TableCell>
+                        </TableRow>
+                        ) : (
+                        filtered.map((order) => {
+                            const customer = customers.find((c) => c.id === order.customer_id);
+                            const status = statuses.find((s) => s.id === order.status_id);
+                            return (
+                            <TableRow key={order.id} >
+                                <TableCell className="font-medium">
+                                {order.order_number}
+                            </TableCell>
+
+                            <TableCell>
+                                <div>
+                                <p className="font-medium">{order.title}</p>
+                                {order.description && (
+                                    <p className="text-xs text-muted-foreground truncate max-w-62.5">
+                                    {order.description}
+                                    </p>
+                                )}
+                                </div>
+                            </TableCell>
+
+                            <TableCell>
+                                {customer?.name || "N/A"}
+                            </TableCell>
+
+                            <TableCell>
+                                <div className="text-sm">
+                                <p>{order.contract_number || "-"}</p>
+                                <p className="text-muted-foreground">
+                                    {order.po_number || "-"}
+                                </p>
+                                </div>
+                            </TableCell>
+
+                            <TableCell>
+                                {order.total_value
+                                ? `${order.currency} ${order.total_value.toLocaleString()}`
+                                : "-"}
+                            </TableCell>
+
+                            <TableCell>
+                                <Badge
+                                className={
+                                    status?.status_name === "Created"
+                                    ? "bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-100"
+                                    : status?.status_name === "Confirmed"
+                                    ? "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-100"
+                                    : status?.status_name === "Processing"
+                                    ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100"
+                                    : status?.status_name === "Shipped"
+                                    ? "bg-violet-100 text-violet-800 border border-violet-300 hover:bg-violet-100"
+                                    : status?.status_name === "Delivered"
+                                    ? "bg-green-100 text-green-800 border border-green-300 hover:bg-green-100"
+                                    : status?.status_name === "Cancelled"
+                                    ? "bg-red-100 text-red-800 border border-red-300 hover:bg-red-100"
+                                    : "bg-gray-100 text-gray-700 border border-gray-300"
+                                }
+                                >
+                                {status?.status_name || "Unknown"}
+                                </Badge>
+                            </TableCell>
+                            {/* <TableCell>
+                                {status?.status_name || "N/A"}
+                            </TableCell> */}
+
+                            <TableCell>
+                                {order.delivery_date
+                                ? new Date(order.delivery_date).toLocaleDateString()
+                                : "-"}
+                            </TableCell>
+
+                            <TableCell>
+                                {order.project_manager || "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex justify-end gap-2 text-accent">
+                                    <Pencil  className='w-4.5 text-accent-foreground hover:text-blue-600'
+                                    onClick={() => openEdit(order)}
+                                    />
+                                    |
+                                    <Trash2 className='w-4.5 text-accent-foreground hover:text-red-600'
+                                    onClick={() => handleDelete(order.id)}
+                                    />
+                                </div>
+                            </TableCell>
+                            </TableRow>   
+                            );
+                        })
+                        )}
+                    </TableBody>
+                    </Table>
+                </div>
+                </CardContent>
+            </Card>
+            
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogContent className="sm:max-w-190 p-0">
+                <DialogHeader className="border-b px-6 py-4">
+                    <DialogTitle className="text-lg font-semibold">
+                    Edit Order
+                    </DialogTitle>
+                    <DialogDescription>
+                    Update the order details below.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+                    <div className="grid gap-5 md:grid-cols-2">
+
+                    {/* Customer */}
+                    <div className="space-y-2">
+                        <Label htmlFor="edit_customer">Customer</Label>
+
+                        <Select
+                        value={formData.customer_id?.toString() ?? ""}
+                        onValueChange={(v) =>
+                            setFormData({
+                            ...formData,
+                            customer_id: Number(v),
+                            })
+                        }
+                        >
+                        <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select customer" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                            {customers.map((c) => (
+                            <SelectItem
+                                key={c.id}
+                                value={c.id.toString()}
+                            >
+                                {c.name}
+                            </SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Status */}
+                    <div className="space-y-2">
+                        <Label>Status</Label>
+
+                        <Select
+                        value={formData.status_id?.toString() ?? ""}
+                        onValueChange={(v) =>
+                            setFormData({
+                            ...formData,
+                            status_id: Number(v),
+                            })
+                        }
+                        >
+                        <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                            {statuses.map((s) => (
+                            <SelectItem
+                                key={s.id}
+                                value={s.id.toString()}
+                            >
+                                {s.status_name}
+                            </SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-2">
+                        <Label>Title</Label>
+
+                        <Input
+                        value={formData.title}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            title: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-2 md:col-span-2">
+                        <Label>Description</Label>
+
+                        <textarea
+                        className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={formData.description ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            description: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Contract */}
+                    <div className="space-y-2">
+                        <Label>Contract Number</Label>
+
+                        <Input
+                        value={formData.contract_number ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            contract_number: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* PO */}
+                    <div className="space-y-2">
+                        <Label>PO Number</Label>
+
+                        <Input
+                        value={formData.po_number ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            po_number: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Order Date */}
+                    <div className="space-y-2">
+                        <Label>Order Date</Label>
+
+                        <Input
+                        type="date"
+                        value={formData.order_date}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            order_date: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Delivery Date */}
+                    <div className="space-y-2">
+                        <Label>Delivery Date</Label>
+
+                        <Input
+                        type="date"
+                        value={formData.delivery_date ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            delivery_date: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Total Value */}
+                    <div className="space-y-2">
+                        <Label>Total Value</Label>
+
+                        <Input
+                        type="number"
+                        value={formData.total_value ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            total_value:
+                                e.target.value === ""
+                                ? null
+                                : Number(e.target.value),
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Currency */}
+                    <div className="space-y-2">
+                        <Label>Currency</Label>
+
+                        <Input
+                        value={formData.currency}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            currency: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Project Manager */}
+                    <div className="space-y-2 md:col-span-2">
+                        <Label>Project Manager</Label>
+
+                        <Input
+                        value={formData.project_manager ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            project_manager: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    {/* Remarks */}
+                    <div className="space-y-2 md:col-span-2">
+                        <Label>Remarks</Label>
+
+                        <textarea
+                        className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={formData.remarks ?? ""}
+                        onChange={(e) =>
+                            setFormData({
+                            ...formData,
+                            remarks: e.target.value,
+                            })
+                        }
+                        />
+                    </div>
+
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-2 border-t px-6 py-4">
+                    <Button
+                    variant="outline"
+                    onClick={() => setIsEditOpen(false)}
+                    >
+                    Cancel
+                    </Button>
+
+                    <Button onClick={handleUpdate}>
+                    Update Order
+                    </Button>
+                </div>
+                </DialogContent>
+            </Dialog>
+            
+            </div>
+
+        </div>
+
+
+
     </div>
-
-    </div>
-
-
-
-</div>
   );
 }

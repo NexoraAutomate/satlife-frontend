@@ -53,12 +53,12 @@ export default function SystemsPage() {
   const filtered = systems.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.description.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || s.status?.name === statusFilter;
+    const matchesStatus = statusFilter === 'all' || s.status?.status_name === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const statusCounts = Object.keys(SYSTEM_STATUSES).reduce((acc, status) => {
-    acc[status] = systems.filter(s => s.status?.name === status).length;
+    acc[status] = systems.filter(s => s.status?.status_name === status).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -297,7 +297,7 @@ export default function SystemsPage() {
                         <TableCell className="font-medium">{system.name}</TableCell>
                         <TableCell>{project?.name || 'N/A'}</TableCell>
                         <TableCell>
-                          <StatusBadge status={system.status?.name || 'Unknown'} />
+                          <StatusBadge status={system.status?.status_name || 'Unknown'} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

@@ -20,6 +20,16 @@ import { stringify } from 'querystring';
 import * as Models from '@/lib/models';
 import * as api from '@/lib/api';
 
+const emptyCustomerForm: CustomerForm = {
+  customer_code: '',
+  name: '',
+  organization_type: '',
+  primary_contact_name: '',
+  email: '',
+  phone: '',
+  country: '',
+  status_id: undefined,
+};
 
 type CustomerForm = {
   customer_code?: string;
@@ -29,7 +39,7 @@ type CustomerForm = {
   email: string;
   phone: string;
   country: string;
-  status: string;
+  status_id?: number;
 };
 
 export default function CustomersPage() {
@@ -41,11 +51,12 @@ export default function CustomersPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Customer| null>(null);
   const [statuses, setStatuses] = useState<Models.Status[]>([]);
+  const [formData, setFormData] = useState<CustomerForm>(emptyCustomerForm);
   const router = useRouter();
-  
 
-  const getStatusValue = (status: Models.Status) => status.name ?? (status as any).name ?? String(status.id);
-  const getStatusLabel = (status: Models.Status) => status.name ?? (status as any).name ?? 'Unknown';
+
+  const getStatusValue = (status: Models.Status) => status.status_name ?? (status as any).status_name ?? String(status.id);
+  const getStatusLabel = (status: Models.Status) => status.status_name ?? (status as any).status_name ?? 'Unknown';
 
   const resolveStatusValue = (status?: string) => {
     if (!status) return '';
@@ -59,17 +70,6 @@ export default function CustomersPage() {
 
     return matched ? getStatusValue(matched) : status;
   };
-
-  const [formData, setFormData] = useState<CustomerForm>({
-    // customer_code: (customers.length + 1).toString(),
-    name: '',
-    organization_type: '',
-    primary_contact_name: '',
-    email: '',
-    phone: '',
-    country: '',
-    status: '',
-  });
   const filtered = customers.filter((c) => {
     const term = search.toLowerCase();
 
@@ -82,22 +82,14 @@ export default function CustomersPage() {
     );
   });
   async function handleCreate() {
-   if (!formData.name.trim() || !formData.status.trim()) {
+   if (!formData.name.trim() || !formData.status_id) {
       toast.error('Please fill in all required fields');
       return;
     }
     try {
+      console.log("formData  :", formData)
       await createCustomer(formData);
-      setFormData({
-          customer_code: '',
-          name: '',
-          organization_type: '',
-          primary_contact_name: '',
-          email: '',
-          phone: '',
-          country: '',
-          status: '',
-        });
+      setFormData(emptyCustomerForm);
       setIsCreateOpen(false);
     } catch {
       // Error handled by DataStore
@@ -124,7 +116,7 @@ export default function CustomersPage() {
   }
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id);
-    console.log(customer.status);
+    // console.log(customer.status.status_name);
 
     setFormData({
       customer_code: customer.customer_code || '',
@@ -134,7 +126,7 @@ export default function CustomersPage() {
       email: customer.email || '',
       phone: customer.phone || '',
       country: customer.country || '',
-      status: resolveStatusValue(customer.status),
+      status_id: customer.status_id ?? undefined,
     });
 
     setIsEditOpen(true);
@@ -154,7 +146,7 @@ export default function CustomersPage() {
           payload: formData,
         });
       await updateCustomer(editingId, formData);
-      console.log('Current formData.status:', formData.status);
+      console.log('Current formData.status:', formData.status_id);
 
       setFormData({
         customer_code: '',
@@ -164,7 +156,8 @@ export default function CustomersPage() {
         email: '',
         phone: '',
         country: '',
-        status: '',
+        status_id: undefined
+,
       });
 
       setEditingId(null);
@@ -212,6 +205,8 @@ export default function CustomersPage() {
             className="pl-10"
           />
         </div>
+
+{/* Dialog Box to Create Customer */}
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -228,7 +223,7 @@ export default function CustomersPage() {
             </DialogHeader>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-
+{/* Customer Name */}
                 <div>
                   <Label htmlFor="name">Customer Name</Label>
                   <Input
@@ -243,7 +238,7 @@ export default function CustomersPage() {
                     placeholder="Customer name"
                   />
                 </div>
-
+{/* organization_type */}
                 <div>
                   <Label htmlFor="organization_type">
                     Organization Type
@@ -260,7 +255,7 @@ export default function CustomersPage() {
                     placeholder="Government / Private"
                   />
                 </div>
-
+{/* primary_contact_name */}
                 <div>
                   <Label htmlFor="primary_contact_name">
                     Primary Contact
@@ -277,7 +272,7 @@ export default function CustomersPage() {
                     placeholder="Contact person"
                   />
                 </div>
-
+{/* Email */}
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -293,7 +288,7 @@ export default function CustomersPage() {
                     placeholder="customer@example.com"
                   />
                 </div>
-
+{/* Phone */}
                 <div>
                   <Label htmlFor="phone">Phone</Label>
                   <Input
@@ -308,7 +303,7 @@ export default function CustomersPage() {
                     placeholder="+92xxxxxxxxxx"
                   />
                 </div>
-
+{/* Country */}
                 <div>
                   <Label htmlFor="country">Country</Label>
                   <Input
@@ -323,50 +318,42 @@ export default function CustomersPage() {
                     placeholder="Pakistan"
                   />
                 </div>
-
+{/* Status */}
                 <div>
                   <Label htmlFor="status">Status</Label>
                   <Select
-                    value={formData.status}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        status: value,
-                      }))
+                    value={formData.status_id?.toString()}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, status_id: parseInt(v, 10) })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-
                     <SelectContent>
+                      {statuses.map((s) => (
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          {s.status_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                    {/* <SelectContent>
                       {statuses.map((s) => {
-                        const statusValue = s.name ?? (s as any).name ?? String(s.id);
-                        const statusLabel = s.name ?? (s as any).name ?? 'Unknown';
+                        const statusValue = s.status_name ?? (s as any).status_name ?? String(s.id);
+                        const statusLabel = s.status_name ?? (s as any).status_name ?? 'Unknown';
+                        console.log("statusValue", statusValue)
+                        console.log("statusLabel", statusLabel)
+                        console.log("statusID", s.id)
                         return (
                           <SelectItem key={s.id} value={statusValue}>
                             {statusLabel}
                           </SelectItem>
                         );
                       })}
-                    </SelectContent>
+                    </SelectContent> */}
                   </Select>
                 </div>
-                {/* <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value,
-                    })
-                  }
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="prospect">Prospect</option>
-                </select> */}
+                
               </div>
 
             <div className="flex gap-2 justify-end">
@@ -382,38 +369,7 @@ export default function CustomersPage() {
               </Button>
             </div>
           </DialogContent>
-          {/* <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Customer</DialogTitle>
-              <DialogDescription>Enter customer details below</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Customer name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="contact">Contact Info</Label>
-                <Input
-                  id="contact"
-                  value={formData.contact_info}
-                  onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })}
-                  placeholder="Email or phone"
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreate}>Create</Button>
-              </div>
-            </div>
-          </DialogContent> */}
+         
         </Dialog>
       </div>
 
@@ -444,7 +400,10 @@ export default function CustomersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((customer) => (
+                  filtered.map((customer) => {
+                      console.log("Customer Status:", customer.status_name);
+                    
+                   return  (
                     <TableRow key={customer.id}   onClick={() => router.push(`/customers/${customer.id}`)}>
                       <TableCell>{customer.customer_code}</TableCell>
 
@@ -479,22 +438,40 @@ export default function CustomersPage() {
                         </div>
                       </TableCell>
 
-                      <TableCell>
+                      {/* <TableCell>
                         <Badge
                           variant={
-                            customer.status === "Active"
+                            customer.status.status_name === "Active"
                               ? "default"
-                              : customer.status === "inactive"
+                              : customer.status.status_name === "Inactive"
                               ? "secondary"
-                              : customer.status === "Blacklisted"
+                              : customer.status.status_name === "Blacklisted"
                               ? "destructive"
                               : "outline"
                           }
                         >
-                          {customer.status}
+                          {customer.status.status_name}
                         </Badge>
-                      </TableCell>
-                      
+                      </TableCell> */}
+
+                      <TableCell>
+                          <Badge
+                            className={
+                                  customer.status_name === "Active"
+                                ? "bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-100"
+                                : customer.status_name === "Inactive"
+                                ? "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-100"
+                                : customer.status_name === "Blacklisted"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100"
+                                : customer.status_name === "Prospect"
+                                ? "bg-violet-100 text-violet-800 border border-violet-300 hover:bg-violet-100"
+                                : "outline"
+                              }
+                          >
+                            {customer.status_name}
+                          </Badge>
+                        </TableCell>
+  
                       <TableCell>
                         <div>
                           <p className="font-medium">xxxx</p>
@@ -523,7 +500,7 @@ export default function CustomersPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 )}
               </TableBody>
             </Table>
@@ -638,14 +615,11 @@ export default function CustomersPage() {
               <option value="prospect">Prospect</option>
             </select> */}
 
-            <Select 
+            {/* <Select 
                 value={formData.status}  
                 onValueChange={(value) => setFormData((prev) => ({...prev, status: value}))
               }
             >
-              {/* value={formData.unit_id.toString()}
-                onValueChange={(v) => setFormData({ ...formData, unit_id: parseInt(v) })} */}
-
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
@@ -657,8 +631,31 @@ export default function CustomersPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+            </Select> */}
+            <Select
+              value={formData.status_id?.toString() ?? ""}
+              onValueChange={(v) =>
+                setFormData({
+                  ...formData,
+                  status_id: Number(v),
+                })
+              }
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
 
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem
+                    key={s.id}
+                    value={s.id.toString()}
+                  >
+                    {s.status_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
