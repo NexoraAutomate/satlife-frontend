@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,11 @@ import { toast } from 'sonner';
 import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
 import { Badge } from '@/components/ui/badge';
+import { getProjectCountByOrderId, getCount } from '@/lib/entity-counts';
+import { EntityCountCell } from '@/components/entity-count-cell';
+import { EntityNameWithFault } from '@/components/entity-fault-ping';
+import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
+import { OrdersMiniDashboard } from '@/components/orders/orders-mini-dashboard';
 
 type OrderForm = {
   order_number?: string
@@ -48,9 +54,12 @@ const emptyOrderForm: OrderForm = {
 };
 
 export default function OrdersPage() {
-  const {orders, customers, loading, createOrder, updateOrder, deleteOrder} = useDataStore();
+  const router = useRouter();
+  const {orders, customers, projects, loading, createOrder, updateOrder, deleteOrder} = useDataStore();
+  const faultMap = useEntityFaultMap();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -58,13 +67,27 @@ export default function OrdersPage() {
   const [formData, setFormData] = useState<OrderForm>(emptyOrderForm);
   const [statuses, setStatuses] = useState<Models.Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(true);
-  const [customer, setcustomer] = useState<Models.Customer[]>([]);
+
+  const projectCountByOrder = useMemo(
+    () => getProjectCountByOrderId(projects),
+    [projects]
+  );
 
   const filtered = orders.filter((o) => {
-    // const matchesSearch = o.order_number.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch =
+      !search.trim() ||
+      o.order_number?.toLowerCase().includes(search.toLowerCase()) ||
+      o.title?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || o.status_id?.toString() === statusFilter;
-    return matchesStatus;
+    const matchesCustomer =
+      customerFilter === 'all' || o.customer_id?.toString() === customerFilter;
+    return matchesSearch && matchesStatus && matchesCustomer;
   });
+
+  const filteredCustomer = useMemo(
+    () => (customerFilter === 'all' ? null : customers.find((c) => String(c.id) === customerFilter)),
+    [customerFilter, customers]
+  );
 
   async function handleCreate() {
     if (
@@ -183,6 +206,43 @@ export default function OrdersPage() {
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
         <p className="text-muted-foreground mt-2">Manage all orders</p>
       </div>
+
+      <OrdersMiniDashboard
+        orders={orders}
+        projects={projects}
+        customers={customers}
+        orderStatuses={statuses}
+        activeOrderStatusId={statusFilter}
+        activeCustomerId={customerFilter}
+        onOrderStatusFilter={setStatusFilter}
+        onCustomerFilter={setCustomerFilter}
+      />
+
+      {(statusFilter !== 'all' || customerFilter !== 'all') && (
+        <div className="flex flex-wrap items-center gap-2">
+          {statusFilter !== 'all' && (
+            <span className="rounded-full border bg-muted px-3 py-1 text-sm">
+              Status:{' '}
+              <strong>{statuses.find((s) => String(s.id) === statusFilter)?.status_name}</strong>
+            </span>
+          )}
+          {filteredCustomer && (
+            <span className="rounded-full border bg-muted px-3 py-1 text-sm">
+              Customer: <strong>{filteredCustomer.name}</strong>
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setStatusFilter('all');
+              setCustomerFilter('all');
+            }}
+          >
+            Clear filters
+          </Button>
+        </div>
+      )}
 
       <div className="flex gap-4 items-center">
         <div className="flex-1 relative">
@@ -428,6 +488,7 @@ export default function OrdersPage() {
                   <TableHead>Contract / PO</TableHead>
                   <TableHead>Value</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Projects</TableHead>
                   <TableHead>Delivery</TableHead>
                   <TableHead>PM</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -436,7 +497,7 @@ export default function OrdersPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No orders found
                     </TableCell>
                   </TableRow>
@@ -445,10 +506,19 @@ export default function OrdersPage() {
                     const customer = customers.find((c) => c.id === order.customer_id);
                     const status = statuses.find((s) => s.id === order.status_id);
                     return (
-                      <TableRow key={order.id} >
+                      <TableRow
+                        key={order.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => router.push(`/projects?order_id=${order.id}`)}
+                      >
                         <TableCell className="font-medium">
-                        {order.order_number}
-                      </TableCell>
+                          <EntityNameWithFault
+                            name={order.order_number}
+                            entityType="order"
+                            entityId={order.id}
+                            faultMap={faultMap}
+                          />
+                        </TableCell>
 
                       <TableCell>
                         <div>
@@ -501,9 +571,13 @@ export default function OrdersPage() {
                           {order.status_name}
                         </Badge>
                       </TableCell>
-                      {/* <TableCell>
-                        {status?.name || "N/A"}
-                      </TableCell> */}
+
+                      <TableCell>
+                        <EntityCountCell
+                          count={getCount(projectCountByOrder, order.id)}
+                          label="Total projects"
+                        />
+                      </TableCell>
 
                       <TableCell>
                         {order.delivery_date
@@ -517,11 +591,11 @@ export default function OrdersPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2 text-accent">
                             <Pencil  className='w-4.5 text-accent-foreground hover:text-blue-600'
-                              onClick={() => openEdit(order)}
+                              onClick={(e) => { e.stopPropagation(); openEdit(order); }}
                             />
                             |
                             <Trash2 className='w-4.5 text-accent-foreground hover:text-red-600'
-                              onClick={() => handleDelete(order.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDelete(order.id); }}
                             />
                         </div>
                       </TableCell>

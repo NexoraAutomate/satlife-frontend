@@ -22,6 +22,7 @@ export default function LoginPage() {
       router.replace('/dashboard');
     }
   }, [isAuthenticated, router]);
+  console.log('LoginPage rendered, isAuthenticated:', isAuthenticated);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,9 +55,9 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
             <Satellite className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">SatLife</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Smart SDLS</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Satellite Lifecycle Management System
+            Product Lifecycle Management System
           </CardDescription>
         </CardHeader>
         <CardContent>

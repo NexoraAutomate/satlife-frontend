@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useDataStore } from '@/lib/data-store';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,74 +10,204 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import * as api from '@/lib/api';
+import type { Hierarchy, Inventory } from '@/lib/models';
+
+type EntityType = 'system' | 'subsystem' | 'module' | 'unit' | 'component';
+
+interface InventoryItem extends Inventory {
+  entityName?: string;
+  serialNumber?: string;
+  partNumber?: string;
+}
+
+function enrichInventoryItems(items: Inventory[]): InventoryItem[] {
+  return items.map((item) => ({
+    ...item,
+    entityName: item.name,
+    serialNumber: item.serial_number || '',
+    partNumber: item.manufacturer_part_number || '',
+  }));
+}
 
 export default function InventoryPage() {
-  const { inventory, components, loading, createInventory, updateInventory, deleteInventory } = useDataStore();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [entityTypeFilter, setEntityTypeFilter] = useState<EntityType | 'all'>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  const [selectedEntityType, setSelectedEntityType] = useState<EntityType>('component');
+  const [hierarchyCategories, setHierarchyCategories] = useState<Hierarchy[]>([]);
   const [formData, setFormData] = useState({
-    component_id: 0,
-    quantity: 0,
-    location: '',
+    name: '',
+    inventory_type: 'component',
     serial_number: '',
+    quantity: 0,
+    description: '',
+    oem_name: '',
+    manufacturer_part_number: '',
+    location: '',
   });
 
-  const filtered = inventory.filter((item) =>
-    item.serial_number.toLowerCase().includes(search.toLowerCase()) ||
-    components.find((c) => c.id === item.component_id)?.name.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    const fetchHierarchyCategories = async () => {
+      try {
+        const res = await api.hierarchies.list(selectedEntityType);
+        setHierarchyCategories(res.data);
+      } catch (err) {
+        console.error('Failed to load hierarchy categories:', err);
+        setHierarchyCategories([]);
+      }
+    };
+
+    fetchHierarchyCategories();
+  }, [selectedEntityType]);
+
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const res = await api.inventory.list(0, 1000);
+        const enrichedItems = enrichInventoryItems(res.data);
+        setInventory(enrichedItems);
+        setLoading(false);
+      } catch (err) {
+        console.error('Failed to fetch inventory:', err);
+        toast.error('Failed to load inventory');
+        setLoading(false);
+      }
+    };
+
+    fetchInventory();
+  }, []);
+
+  const filtered = inventory.filter((item) => {
+    const matchesType = entityTypeFilter === 'all' || item.inventory_type === entityTypeFilter;
+    const matchesSearch =
+      search === '' ||
+      item.entityName?.toLowerCase().includes(search.toLowerCase()) ||
+      item.serialNumber?.toLowerCase().includes(search.toLowerCase()) ||
+      item.partNumber?.toLowerCase().includes(search.toLowerCase());
+    return matchesType && matchesSearch;
+  });
 
   async function handleCreate() {
-    if (!formData.component_id || formData.quantity <= 0 || !formData.location.trim()) {
-      toast.error('Please fill in all required fields');
+    if (!formData.name.trim() || formData.quantity <= 0 || !formData.location.trim()) {
+      toast.error(`Please fill in required fields: ${getEntityDisplayName(selectedEntityType)} category, Quantity (>0), and Location`);
       return;
     }
+
     try {
-      await createInventory(formData);
-      setFormData({ component_id: 0, quantity: 0, location: '', serial_number: '' });
+      const payload = {
+        name: formData.name,
+        inventory_type: selectedEntityType,
+        serial_number: formData.serial_number,
+        quantity: formData.quantity,
+        description: formData.description,
+        oem_name: formData.oem_name,
+        manufacturer_part_number: formData.manufacturer_part_number,
+        location: formData.location,
+      };
+
+      await api.inventory.create(payload);
+      toast.success('Inventory item created');
+      
+      // Refresh inventory
+      const res = await api.inventory.list(0, 1000);
+      setInventory(enrichInventoryItems(res.data));
+      
+      setFormData({ name: '', inventory_type: 'component', serial_number: '', quantity: 0, description: '', oem_name: '', manufacturer_part_number: '', location: '' });
+      setSelectedEntityType('component');
       setIsCreateOpen(false);
-    } catch {
-      // Error handled by DataStore
+    } catch (err) {
+      console.error('Failed to create inventory item:', err);
+      toast.error('Failed to create inventory item');
     }
   }
 
   async function handleUpdate() {
     if (!editingId) return;
-    if (!formData.component_id || formData.quantity <= 0 || !formData.location.trim()) {
-      toast.error('Please fill in all required fields');
+    if (!formData.name.trim() || formData.quantity <= 0 || !formData.location.trim()) {
+      toast.error('Please fill in required fields: Name, Quantity (>0), and Location');
       return;
     }
+
     try {
-      await updateInventory(editingId, formData);
-      setFormData({ component_id: 0, quantity: 0, location: '', serial_number: '' });
+      const payload = {
+        name: formData.name,
+        inventory_type: selectedEntityType,
+        serial_number: formData.serial_number,
+        quantity: formData.quantity,
+        description: formData.description,
+        oem_name: formData.oem_name,
+        manufacturer_part_number: formData.manufacturer_part_number,
+        location: formData.location,
+      };
+
+      await api.inventory.update(editingId, payload);
+      toast.success('Inventory item updated');
+
+      const updatedItem: InventoryItem = {
+        ...(inventory.find((item) => item.id === editingId) as InventoryItem),
+        ...payload,
+        entityName: payload.name,
+        serialNumber: payload.serial_number || '',
+        partNumber: payload.manufacturer_part_number || '',
+      };
+
+      setInventory((prev) => prev.map((item) => (item.id === editingId ? updatedItem : item)));
+
+      try {
+        const res = await api.inventory.list(0, 1000);
+        setInventory(enrichInventoryItems(res.data));
+      } catch (refreshErr) {
+        console.error('Failed to refresh inventory after update:', refreshErr);
+      }
+
+      setFormData({ name: '', inventory_type: 'component', serial_number: '', quantity: 0, description: '', oem_name: '', manufacturer_part_number: '', location: '' });
+      setSelectedEntityType('component');
       setEditingId(null);
       setIsEditOpen(false);
-    } catch {
-      // Error handled by DataStore
+    } catch (err) {
+      console.error('Failed to update inventory item:', err);
+      toast.error('Failed to update inventory item');
     }
   }
 
   async function handleDelete(id: number) {
     if (!confirm('Are you sure you want to delete this inventory item?')) return;
+
     try {
-      await deleteInventory(id);
-    } catch {
-      // Error handled by DataStore
+      await api.inventory.delete(id);
+      toast.success('Inventory item deleted');
+      setInventory(inventory.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error('Failed to delete inventory item:', err);
+      toast.error('Failed to delete inventory item');
     }
   }
 
-  function openEdit(item: typeof inventory[0]) {
+  function openEdit(item: InventoryItem) {
     setEditingId(item.id);
+    setSelectedEntityType(item.inventory_type as EntityType);
     setFormData({
-      component_id: item.component_id,
+      name: item.name || '',
+      inventory_type: item.inventory_type,
+      serial_number: item.serial_number || '',
       quantity: item.quantity,
+      description: item.description || '',
+      oem_name: item.oem_name || '',
+      manufacturer_part_number: item.manufacturer_part_number || '',
       location: item.location,
-      serial_number: item.serial_number,
     });
     setIsEditOpen(true);
   }
+
+  const getEntityDisplayName = (entityType: EntityType) => {
+    return entityType.charAt(0).toUpperCase() + entityType.slice(1);
+  };
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
@@ -86,76 +215,153 @@ export default function InventoryPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
-        <p className="text-muted-foreground mt-2">Track component inventory and stock levels</p>
+        <p className="text-muted-foreground mt-2">Manage inventory for all entity types</p>
       </div>
 
       <div className="flex gap-4 items-center">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by serial number or component..."
+            placeholder="Search by name, serial number, or part number..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
+
+        <Select value={entityTypeFilter} onValueChange={(value) => setEntityTypeFilter(value as EntityType | 'all')}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="system">System</SelectItem>
+            <SelectItem value="subsystem">Subsystem</SelectItem>
+            <SelectItem value="module">Module</SelectItem>
+            <SelectItem value="unit">Unit</SelectItem>
+            <SelectItem value="component">Component</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
               Add Item
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Inventory Item</DialogTitle>
-              <DialogDescription>Register a new component in inventory</DialogDescription>
+              <DialogDescription>Add a new inventory item for any entity type</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Component *</Label>
+                <Label>Inventory Type *</Label>
                 <Select
-                  value={formData.component_id.toString()}
-                  onValueChange={(v) => setFormData({ ...formData, component_id: parseInt(v) })}
+                  value={selectedEntityType}
+                  onValueChange={(value) => {
+                    setSelectedEntityType(value as EntityType);
+                    setFormData({ ...formData, inventory_type: value, name: '' });
+                  }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select component" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {components.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="system">System</SelectItem>
+                    <SelectItem value="subsystem">Subsystem</SelectItem>
+                    <SelectItem value="module">Module</SelectItem>
+                    <SelectItem value="unit">Unit</SelectItem>
+                    <SelectItem value="component">Component</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
               <div>
-                <Label>Quantity *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
-                  placeholder="0"
-                />
+                <Label>{getEntityDisplayName(selectedEntityType)} Category *</Label>
+                <Select
+                  value={formData.name}
+                  onValueChange={(value) => setFormData({ ...formData, name: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={`Select ${selectedEntityType} from hierarchy`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hierarchyCategories.length === 0 ? (
+                      <SelectItem value="__none__" disabled>
+                        No categories defined in hierarchy
+                      </SelectItem>
+                    ) : (
+                      hierarchyCategories.map((hierarchy) => (
+                        <SelectItem key={hierarchy.id} value={hierarchy.name}>
+                          {hierarchy.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <Label>Location *</Label>
-                <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Warehouse A, Shelf 3"
-                />
-              </div>
+
               <div>
                 <Label>Serial Number</Label>
                 <Input
                   value={formData.serial_number}
                   onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                  placeholder="SN-2024-001"
+                  placeholder="e.g., SN-2024-001"
                 />
               </div>
+
+              <div>
+                <Label>Manufacturer Part Number</Label>
+                <Input
+                  value={formData.manufacturer_part_number}
+                  onChange={(e) => setFormData({ ...formData, manufacturer_part_number: e.target.value })}
+                  placeholder="e.g., MPN-12345"
+                />
+              </div>
+
+              <div>
+                <Label>OEM Name</Label>
+                <Input
+                  value={formData.oem_name}
+                  onChange={(e) => setFormData({ ...formData, oem_name: e.target.value })}
+                  placeholder="Original Equipment Manufacturer"
+                />
+              </div>
+
+              <div>
+                <Label>Description</Label>
+                <Input
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Item description"
+                />
+              </div>
+
+              <div>
+                <Label>Quantity *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.quantity || ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                    setFormData({ ...formData, quantity: isNaN(val) ? 0 : val });
+                  }}
+                  placeholder="Enter quantity"
+                />
+              </div>
+
+              <div>
+                <Label>Location *</Label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Warehouse location"
+                />
+              </div>
+
               <div className="flex gap-2 justify-end pt-4">
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
@@ -177,8 +383,10 @@ export default function InventoryPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Component</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Serial Number</TableHead>
+                  <TableHead>Part Number</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -187,40 +395,31 @@ export default function InventoryPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No inventory items found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((item) => {
-                    const component = components.find((c) => c.id === item.component_id);
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{component?.name || 'N/A'}</TableCell>
-                        <TableCell className="font-mono text-sm">{item.serial_number || '—'}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{item.location}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEdit(item)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDelete(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  filtered.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="capitalize font-medium">{item.inventory_type}</TableCell>
+                      <TableCell>{item.entityName || 'N/A'}</TableCell>
+                      <TableCell>{item.serialNumber || '—'}</TableCell>
+                      <TableCell>{item.partNumber || '—'}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>{item.location}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(item)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleDelete(item.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -236,32 +435,84 @@ export default function InventoryPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Component</Label>
+              <Label>Inventory Type</Label>
+              <Input value={getEntityDisplayName(selectedEntityType)} disabled />
+            </div>
+
+            <div>
+              <Label>{getEntityDisplayName(selectedEntityType)} Category</Label>
               <Select
-                value={formData.component_id.toString()}
-                onValueChange={(v) => setFormData({ ...formData, component_id: parseInt(v) })}
+                value={formData.name}
+                onValueChange={(value) => setFormData({ ...formData, name: value })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={`Select ${selectedEntityType} from hierarchy`} />
                 </SelectTrigger>
                 <SelectContent>
-                  {components.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.name}
+                  {hierarchyCategories.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      No categories defined in hierarchy
                     </SelectItem>
-                  ))}
+                  ) : (
+                    hierarchyCategories.map((hierarchy) => (
+                      <SelectItem key={hierarchy.id} value={hierarchy.name}>
+                        {hierarchy.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label>Serial Number</Label>
+              <Input
+                value={formData.serial_number}
+                onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
+                placeholder="e.g., SN-2024-001"
+              />
+            </div>
+
+            <div>
+              <Label>Manufacturer Part Number</Label>
+              <Input
+                value={formData.manufacturer_part_number}
+                onChange={(e) => setFormData({ ...formData, manufacturer_part_number: e.target.value })}
+                placeholder="e.g., MPN-12345"
+              />
+            </div>
+
+            <div>
+              <Label>OEM Name</Label>
+              <Input
+                value={formData.oem_name}
+                onChange={(e) => setFormData({ ...formData, oem_name: e.target.value })}
+                placeholder="Original Equipment Manufacturer"
+              />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Item description"
+              />
+            </div>
+
             <div>
               <Label>Quantity</Label>
               <Input
                 type="number"
                 min="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
+                value={formData.quantity || ''}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                  setFormData({ ...formData, quantity: isNaN(val) ? 0 : val });
+                }}
               />
             </div>
+
             <div>
               <Label>Location</Label>
               <Input
@@ -269,13 +520,7 @@ export default function InventoryPage() {
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
             </div>
-            <div>
-              <Label>Serial Number</Label>
-              <Input
-                value={formData.serial_number}
-                onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-              />
-            </div>
+
             <div className="flex gap-2 justify-end pt-4">
               <Button variant="outline" onClick={() => setIsEditOpen(false)}>
                 Cancel

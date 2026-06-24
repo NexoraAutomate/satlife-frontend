@@ -11,18 +11,24 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { StatusBadge } from '@/components/status-badge';
 import { EntityCards } from '@/components/entity-cards';
 import { EntityForm } from '@/components/entity-form';
+import { EntityInventorySearch } from '@/components/entity-inventory-search';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
+import type { Inventory } from '@/lib/models';
+import { getChildInventoryType, nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
+import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
 
 export default function UnitDetailPage() {
   const params = useParams();
   const unitId = params.id as string;
-  const { units, loading, modules, components, createComponent, deleteComponent } = useDataStore();
+  const { units, loading, modules, components, createComponent, deleteComponent, updateComponent } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const unit = units.find((u) => String(u.id) === unitId);
   const module = unit ? modules.find((m) => m.id === unit.module_id) : null;
   const unitComponents = unit ? components.filter((c) => c.unit_id === unit.id) : [];
@@ -31,7 +37,7 @@ export default function UnitDetailPage() {
   const [loadingStatuses, setLoadingStatuses] = useState(true);
   const [unitHierarchyNames, setUnitHierarchyNames] = useState<Models.Hierarchy[]>([]);
   const [componentHierarchyNames, setComponentHierarchyNames] = useState<Models.Hierarchy[]>([]);
-  
+
   const componentFormFields = [
     {
       name: 'name',
@@ -83,10 +89,10 @@ export default function UnitDetailPage() {
         sku: formData.sku || '',
         unit_id: unit.id,
         status_id: Number(formData.id),
-        part_number:formData.partnumber,
+        part_number: formData.partnumber,
         serial_number: formData.name && formData.partnumber
-                        ? `${formData.name}-${formData.partnumber}`
-                        : formData.name || formData.partnumber || ""
+          ? `${formData.name}-${formData.partnumber}`
+          : formData.name || formData.partnumber || ""
       });
       setIsAddOpen(false);
       toast.success('Component added successfully');
@@ -108,39 +114,93 @@ export default function UnitDetailPage() {
     }
   }
 
-   useEffect(() => {
-        const fetchData = async () => {
-          try {
-            const [statusRes, unitHierarchyRes] = await Promise.all([
-              api.statuses.list("components"),
-              api.hierarchies.list("unit"),
-            ]);
-            setStatuses(statusRes.data);
-            setUnitHierarchyNames(unitHierarchyRes.data);
+  function openEditComponent(id: number) {
+    setEditingId(id);
+    setIsEditOpen(true);
+  }
 
-            if (unit) {
-              const parentHierarchyId = unitHierarchyRes.data.find(
-                (hierarchy) => hierarchy.name === unit.name
-              )?.id;
+  const editingComponent = editingId
+    ? unitComponents.find((c) => c.id === editingId)
+    : null;
 
-              if (parentHierarchyId) {
-                const childRes = await api.hierarchies.list("component", parentHierarchyId);
-                setComponentHierarchyNames(childRes.data);
-              } else {
-                setComponentHierarchyNames([]);
-              }
-            }
-          } catch (err) {
-            console.error("Failed to fetch statuses or hierarchy names", err);
-          } finally {
-            setLoadingStatuses(false);
+  async function handleEditComponent(formData: Record<string, any>) {
+    if (!unit || !editingId) {
+      toast.error('Component not found');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateComponent(editingId, {
+        name: formData.name,
+        description: formData.description || '',
+        unit_id: unit.id,
+        status_id: Number(formData.id),
+        part_number: formData.partnumber,
+      });
+      setIsEditOpen(false);
+      setEditingId(null);
+      toast.success('Component updated successfully');
+    } catch (error) {
+      console.error('Component update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update component';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function handleUseInventory(item: Inventory) {
+    if (!unit) {
+      throw new Error('Unit not found');
+    }
+
+    const defaultStatus = statuses[0];
+    if (!defaultStatus) {
+      throw new Error('No component status available');
+    }
+
+    await createComponent({
+      name: item.name,
+      description: item.description || '',
+      sku: '',
+      unit_id: unit.id,
+      status_id: defaultStatus.id,
+      part_number: item.manufacturer_part_number || '',
+      serial_number: nextSerialNumberFromInventory(item, unitComponents),
+    });
+  }
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statusRes, unitHierarchyRes] = await Promise.all([
+          api.statuses.list("components"),
+          api.hierarchies.list("unit"),
+        ]);
+        setStatuses(statusRes.data);
+        setUnitHierarchyNames(unitHierarchyRes.data);
+
+        if (unit) {
+          const parentHierarchyId = unitHierarchyRes.data.find(
+            (hierarchy) => hierarchy.name === unit.name
+          )?.id;
+
+          if (parentHierarchyId) {
+            const childRes = await api.hierarchies.list("component", parentHierarchyId);
+            setComponentHierarchyNames(childRes.data);
+          } else {
+            setComponentHierarchyNames([]);
           }
-        };
-  
-        fetchData();
-      }, [unit]);
-    if (loading) return <div className="p-8 text-center">Loading...</div>;
-  
+        }
+      } catch (err) {
+        console.error("Failed to fetch statuses or hierarchy names", err);
+      } finally {
+        setLoadingStatuses(false);
+      }
+    };
+
+    fetchData();
+  }, [unit]);
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+
 
   if (!unit) {
     return (
@@ -207,7 +267,16 @@ export default function UnitDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={unit.status?.status_name || 'Unknown'} />
+              <div className="flex items-center gap-1">
+                <StatusBadge status={unit.status?.status_name || 'Unknown'} />
+                <EntityStatusHistorySheet
+                  entityType="unit"
+                  entityPk={unit.id}
+                  entityName={unit.name}
+                  statuses={statuses}
+                  triggerVariant="icon"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -230,10 +299,20 @@ export default function UnitDetailPage() {
         description={`Manage components for ${unit.name}`}
         entities={unitComponents}
         onAdd={() => setIsAddOpen(true)}
+        onEdit={openEditComponent}
         onDelete={handleDeleteComponent}
         detailPath={(id) => `/components/${id}`}
         addButtonLabel="Add Component"
         emptyMessage="No components yet. Click 'Add Component' to create one."
+        childEntityType="component"
+      />
+
+      {/* Inventory Items */}
+      <EntityInventorySearch
+        parentEntityName={unit.name}
+        inventoryType={getChildInventoryType('unit')}
+        allowedInventoryNames={componentHierarchyNames.map((hierarchy) => hierarchy.name)}
+        onUseInventory={handleUseInventory}
       />
 
       {/* Add Component Dialog */}
@@ -249,6 +328,35 @@ export default function UnitDetailPage() {
             isLoading={isSubmitting}
             onCancel={() => setIsAddOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Component Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Component</DialogTitle>
+            <DialogDescription>Update component details</DialogDescription>
+          </DialogHeader>
+          {editingComponent ? (
+            <EntityForm
+              key={editingComponent.id}
+              fields={componentFormFields}
+              initialValues={{
+                name: editingComponent.name,
+                description: editingComponent.description || '',
+                partnumber: editingComponent.part_number || '',
+                id: editingComponent.status_id,
+              }}
+              onSubmit={handleEditComponent}
+              isLoading={isSubmitting}
+              onCancel={() => {
+                setIsEditOpen(false);
+                setEditingId(null);
+              }}
+              submitLabel="Update"
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
