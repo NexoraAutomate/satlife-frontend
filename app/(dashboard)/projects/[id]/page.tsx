@@ -17,15 +17,18 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
+import { EntityInventorySearch } from '@/components/entity-inventory-search';
+import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import { nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
   const { projects, systems, orders, loading, createSystem, deleteSystem, updateSystem } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [statuses, setStatuses] = useState<Models.Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(true);
@@ -96,7 +99,8 @@ export default function ProjectDetailPage() {
         part_number:formData.partnumber,
         serial_number: formData.name && formData.partnumber
                         ? `${formData.name}-${formData.partnumber}`
-                        : formData.name || formData.partnumber || ""
+                        : formData.name || formData.partnumber || "",
+        configuration_item: formData.partnumber || formData.name,
 
       });
       setIsAddOpen(false);
@@ -119,6 +123,82 @@ export default function ProjectDetailPage() {
     }
   }
 
+  function openEditSystem(id: number) {
+    setEditingId(id);
+    setIsEditOpen(true);
+  }
+
+  const editingSystem = editingId
+    ? projectSystems.find((s) => s.id === editingId)
+    : null;
+
+  async function handleEditSystem(formData: Record<string, any>) {
+    if (!project || !editingId) {
+      toast.error('System not found');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateSystem(editingId, {
+        name: formData.name,
+        description: formData.description || '',
+        project_id: formData.project_id ? Number(formData.project_id) : project.id,
+        status_id: Number(formData.id),
+        part_number: formData.partnumber,
+      });
+      setIsEditOpen(false);
+      setEditingId(null);
+      toast.success('System updated successfully');
+    } catch (error) {
+      console.error('System update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update system';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleUseInventory(item: Inventory) {
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const defaultStatus = statuses[0];
+    if (!defaultStatus) {
+      throw new Error('No system status available');
+    }
+
+    await createSystem({
+      name: item.name,
+      description: item.description || '',
+      project_id: project.id,
+      status_id: defaultStatus.id,
+      part_number: item.manufacturer_part_number || '',
+      serial_number: nextSerialNumberFromInventory(item, projectSystems),
+    });
+  }
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statusRes, hierarchyRes] = await Promise.all([
+          api.statuses.list('systems'),
+          api.hierarchies.list('system'),
+        ]);
+        setStatuses(statusRes.data);
+        setSystemHierarchyNames(hierarchyRes.data);
+      } catch (err) {
+        console.error('Failed to fetch statuses or hierarchy names', err);
+      } finally {
+        setLoadingStatuses(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -129,26 +209,6 @@ export default function ProjectDetailPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-        const fetchData = async () => {
-          try {
-            const [statusRes, hierarchyRes] = await Promise.all([
-              api.statuses.list("systems"),
-              api.hierarchies.list("system"),
-            ]);
-            setStatuses(statusRes.data);
-            setSystemHierarchyNames(hierarchyRes.data);
-          } catch (err) {
-            console.error("Failed to fetch statuses or hierarchy names", err);
-          } finally {
-            setLoadingStatuses(false);
-          }
-        };
-  
-        fetchData();
-      }, []);
-    if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="space-y-6">
@@ -232,10 +292,21 @@ export default function ProjectDetailPage() {
         description={`Manage systems for ${project.name}`}
         entities={projectSystems}
         onAdd={() => setIsAddOpen(true)}
+        onEdit={openEditSystem}
         onDelete={handleDeleteSystem}
         detailPath={(id) => `/systems/${id}`}
+        secondaryPath={(id) => `/projects/${projectId}/systems/${id}/hierarchy`}
         addButtonLabel="Add System"
         emptyMessage="No systems yet. Click 'Add System' to create one."
+        childEntityType="system"
+      />
+
+      {/* Inventory Items */}
+      <EntityInventorySearch
+        parentEntityName={project.name}
+        inventoryType="system"
+        allowedInventoryNames={systemHierarchyNames.map((hierarchy) => hierarchy.name)}
+        onUseInventory={handleUseInventory}
       />
 
       {/* Add System Dialog */}
@@ -254,6 +325,36 @@ export default function ProjectDetailPage() {
             isLoading={isSubmitting}
             onCancel={() => setIsAddOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit System Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit System</DialogTitle>
+            <DialogDescription>Update system details</DialogDescription>
+          </DialogHeader>
+          {editingSystem ? (
+            <EntityForm
+              key={editingSystem.id}
+              fields={systemFormFields}
+              initialValues={{
+                name: editingSystem.name,
+                description: editingSystem.description || '',
+                partnumber: editingSystem.part_number || '',
+                project_id: editingSystem.project_id,
+                id: editingSystem.status_id,
+              }}
+              onSubmit={handleEditSystem}
+              isLoading={isSubmitting}
+              onCancel={() => {
+                setIsEditOpen(false);
+                setEditingId(null);
+              }}
+              submitLabel="Update"
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

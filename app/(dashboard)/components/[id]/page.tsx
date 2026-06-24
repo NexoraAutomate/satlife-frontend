@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Calendar, Layers, Code2 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { StatusBadge } from '@/components/status-badge';
+import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
 
 export default function ComponentDetailPage() {
   const params = useParams();
@@ -111,7 +112,15 @@ export default function ComponentDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={component.status?.status_name || 'Unknown'} />
+              <div className="flex items-center gap-1">
+                <StatusBadge status={component.status?.status_name || 'Unknown'} />
+                <EntityStatusHistorySheet
+                  entityType="component"
+                  entityPk={component.id}
+                  entityName={component.name}
+                  triggerVariant="icon"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -132,8 +141,14 @@ export default function ComponentDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Status</p>
-                <div className="mt-1">
+                <div className="mt-1 flex items-center gap-2">
                   <StatusBadge status={component.status?.status_name || 'Unknown'} />
+                  <EntityStatusHistorySheet
+                    entityType="component"
+                    entityPk={component.id}
+                    entityName={component.name}
+                    triggerVariant="icon"
+                  />
                 </div>
               </div>
             </div>

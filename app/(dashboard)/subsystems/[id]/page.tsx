@@ -11,18 +11,24 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { StatusBadge } from '@/components/status-badge';
 import { EntityCards } from '@/components/entity-cards';
 import { EntityForm } from '@/components/entity-form';
+import { EntityInventorySearch } from '@/components/entity-inventory-search';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import * as Models from '@/lib/models';
+import type { Inventory } from '@/lib/models';
+import { getChildInventoryType, nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
 import * as api from '@/lib/api';
+import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
 
 export default function SubsystemDetailPage() {
   const params = useParams();
   const subsystemId = params.id as string;
-  const { subsystems, loading, systems, modules, createModule, deleteModule } = useDataStore();
+  const { subsystems, loading, systems, modules, createModule, deleteModule, updateModule } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const subsystem = subsystems.find((s) => String(s.id) === subsystemId);
   const system = subsystem ? systems.find((s) => s.id === subsystem.system_id) : null;
   const subsystemModules = subsystem ? modules.filter((m) => m.subsystem_id === subsystem.id) : [];
@@ -73,10 +79,10 @@ export default function SubsystemDetailPage() {
         description: formData.description || '',
         subsystem_id: subsystem.id,
         status_id: Number(formData.id),
-        part_number:formData.partnumber,
+        part_number: formData.partnumber,
         serial_number: formData.name && formData.partnumber
-                        ? `${formData.name}-${formData.partnumber}`
-                        : formData.name || formData.partnumber || ""
+          ? `${formData.name}-${formData.partnumber}`
+          : formData.name || formData.partnumber || ""
       });
       setIsAddOpen(false);
       toast.success('Module added successfully');
@@ -98,6 +104,95 @@ export default function SubsystemDetailPage() {
     }
   }
 
+  function openEditModule(id: number) {
+    setEditingId(id);
+    setIsEditOpen(true);
+  }
+
+  const editingModule = editingId
+    ? subsystemModules.find((m) => m.id === editingId)
+    : null;
+
+  async function handleEditModule(formData: Record<string, any>) {
+    if (!subsystem || !editingId) {
+      toast.error('Module not found');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateModule(editingId, {
+        name: formData.name,
+        description: formData.description || '',
+        subsystem_id: subsystem.id,
+        status_id: Number(formData.id),
+        part_number: formData.partnumber,
+      });
+      setIsEditOpen(false);
+      setEditingId(null);
+      toast.success('Module updated successfully');
+    } catch (error) {
+      console.error('Module update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update module';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleUseInventory(item: Inventory) {
+    if (!subsystem) {
+      throw new Error('Subsystem not found');
+    }
+
+    const defaultStatus = statuses[0];
+    if (!defaultStatus) {
+      throw new Error('No module status available');
+    }
+
+    await createModule({
+      name: item.name,
+      description: item.description || '',
+      subsystem_id: subsystem.id,
+      status_id: defaultStatus.id,
+      part_number: item.manufacturer_part_number || '',
+      serial_number: nextSerialNumberFromInventory(item, subsystemModules),
+    });
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statusRes, subsystemHierarchyRes] = await Promise.all([
+          api.statuses.list('modules'),
+          api.hierarchies.list('subsystem'),
+        ]);
+        setStatuses(statusRes.data);
+        setSubsystemHierarchyNames(subsystemHierarchyRes.data);
+
+        if (subsystem) {
+          const parentHierarchyId = subsystemHierarchyRes.data.find(
+            (hierarchy) => hierarchy.name === subsystem.name
+          )?.id;
+
+          if (parentHierarchyId) {
+            const childRes = await api.hierarchies.list('module', parentHierarchyId);
+            setModuleHierarchyNames(childRes.data);
+          } else {
+            setModuleHierarchyNames([]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch statuses or hierarchy names', err);
+      } finally {
+        setLoadingStatuses(false);
+      }
+    };
+
+    fetchData();
+  }, [subsystem]);
+
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+
   if (!subsystem) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -108,38 +203,6 @@ export default function SubsystemDetailPage() {
       </div>
     );
   }
- useEffect(() => {
-      const fetchData = async () => {
-        try {
-          const [statusRes, subsystemHierarchyRes] = await Promise.all([
-            api.statuses.list("modules"),
-            api.hierarchies.list("subsystem"),
-          ]);
-          setStatuses(statusRes.data);
-          setSubsystemHierarchyNames(subsystemHierarchyRes.data);
-
-          if (subsystem) {
-            const parentHierarchyId = subsystemHierarchyRes.data.find(
-              (hierarchy) => hierarchy.name === subsystem.name
-            )?.id;
-
-            if (parentHierarchyId) {
-              const childRes = await api.hierarchies.list("module", parentHierarchyId);
-              setModuleHierarchyNames(childRes.data);
-            } else {
-              setModuleHierarchyNames([]);
-            }
-          }
-        } catch (err) {
-          console.error("Failed to fetch statuses or hierarchy names", err);
-        } finally {
-          setLoadingStatuses(false);
-        }
-      };
-
-      fetchData();
-    }, [subsystem]);
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="space-y-6">
@@ -195,7 +258,16 @@ export default function SubsystemDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <StatusBadge status={subsystem.status?.status_name || 'Unknown'} />
+              <div className="flex items-center gap-1">
+                <StatusBadge status={subsystem.status?.status_name || 'Unknown'} />
+                <EntityStatusHistorySheet
+                  entityType="subsystem"
+                  entityPk={subsystem.id}
+                  entityName={subsystem.name}
+                  statuses={statuses}
+                  triggerVariant="icon"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -218,10 +290,20 @@ export default function SubsystemDetailPage() {
         description={`Manage modules for ${subsystem.name}`}
         entities={subsystemModules}
         onAdd={() => setIsAddOpen(true)}
+        onEdit={openEditModule}
         onDelete={handleDeleteModule}
         detailPath={(id) => `/modules/${id}`}
         addButtonLabel="Add Module"
         emptyMessage="No modules yet. Click 'Add Module' to create one."
+        childEntityType="module"
+      />
+
+      {/* Inventory Items */}
+      <EntityInventorySearch
+        parentEntityName={subsystem.name}
+        inventoryType={getChildInventoryType('subsystem')}
+        allowedInventoryNames={moduleHierarchyNames.map((hierarchy) => hierarchy.name)}
+        onUseInventory={handleUseInventory}
       />
 
       {/* Add Module Dialog */}
@@ -237,6 +319,35 @@ export default function SubsystemDetailPage() {
             isLoading={isSubmitting}
             onCancel={() => setIsAddOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Module Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Module</DialogTitle>
+            <DialogDescription>Update module details</DialogDescription>
+          </DialogHeader>
+          {editingModule ? (
+            <EntityForm
+              key={editingModule.id}
+              fields={moduleFormFields}
+              initialValues={{
+                name: editingModule.name,
+                description: editingModule.description || '',
+                partnumber: editingModule.part_number || '',
+                id: editingModule.status_id,
+              }}
+              onSubmit={handleEditModule}
+              isLoading={isSubmitting}
+              onCancel={() => {
+                setIsEditOpen(false);
+                setEditingId(null);
+              }}
+              submitLabel="Update"
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

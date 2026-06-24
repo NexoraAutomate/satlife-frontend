@@ -21,10 +21,19 @@ interface EntityFormProps {
   onSubmit: (data: Record<string, any>) => Promise<void>;
   isLoading?: boolean;
   onCancel?: () => void;
+  initialValues?: Record<string, any>;
+  submitLabel?: string;
 }
 
-export function EntityForm({ onSubmit, fields, isLoading = false, onCancel }: EntityFormProps) {
-  const [formData, setFormData] = useState<Record<string, any>>({});
+export function EntityForm({
+  onSubmit,
+  fields,
+  isLoading = false,
+  onCancel,
+  initialValues = {},
+  submitLabel = 'Save',
+}: EntityFormProps) {
+  const [formData, setFormData] = useState<Record<string, any>>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -111,7 +120,7 @@ export function EntityForm({ onSubmit, fields, isLoading = false, onCancel }: En
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting || isLoading}>
-          {isSubmitting || isLoading ? 'Saving...' : 'Save'}
+          {isSubmitting || isLoading ? 'Saving...' : submitLabel}
         </Button>
       </div>
     </form>
