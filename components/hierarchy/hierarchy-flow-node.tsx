@@ -70,6 +70,7 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
   const actions = useContext(HierarchyFlowActionsContext);
   const styles = LEVEL_STYLES[data.type];
   const highlightState = data.highlightState ?? 'normal';
+  const canNavigate = Boolean(actions?.onNavigate);
 
   const handleToggle = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -78,6 +79,7 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
   };
 
   const handleNavigate = (event: React.MouseEvent) => {
+    if (!canNavigate) return;
     event.preventDefault();
     event.stopPropagation();
     actions?.onNavigate?.(data.entityId, data.type);
@@ -87,13 +89,28 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
     <>
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground/40" />
       <div
+        role={canNavigate ? 'button' : undefined}
+        tabIndex={canNavigate ? 0 : undefined}
         className={cn(
-          'w-[220px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-all',
+          'nodrag nopan nowheel w-[220px] rounded-lg border bg-card px-3 py-2.5 text-left shadow-sm transition-all',
           styles.border,
+          canNavigate && 'cursor-pointer hover:bg-accent/30',
           highlightState === 'selected' &&
             'ring-2 ring-primary shadow-md scale-[1.02] z-10',
           highlightState === 'dimmed' && 'opacity-45 saturate-50'
         )}
+        onPointerDown={canNavigate ? (event) => event.stopPropagation() : undefined}
+        onClick={canNavigate ? handleNavigate : undefined}
+        onKeyDown={
+          canNavigate
+            ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleNavigate(event as unknown as React.MouseEvent);
+                }
+              }
+            : undefined
+        }
       >
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <Badge variant="outline" className={cn('text-[10px] uppercase', styles.badge)}>
@@ -110,18 +127,14 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
             <ChevronRight className="pointer-events-none h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
-        {actions?.onNavigate ? (
-          <button
-            type="button"
-            className="nodrag nopan nowheel w-full cursor-pointer text-left"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleNavigate}
-          >
-            <p className="truncate text-sm font-semibold hover:text-primary">{data.label}</p>
-          </button>
-        ) : (
-          <p className="truncate text-sm font-semibold">{data.label}</p>
-        )}
+        <p
+          className={cn(
+            'truncate text-sm font-semibold',
+            canNavigate && highlightState !== 'selected' && 'hover:text-primary'
+          )}
+        >
+          {data.label}
+        </p>
         <HierarchyNodeFieldLines data={data} />
       </div>
       <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground/40" />
