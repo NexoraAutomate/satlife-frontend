@@ -54,6 +54,7 @@ const navItems: NavItem[] = [
 ];
 
 const hierarchyItems: NavItem[] = [
+  { label: "Hierarchy Dashboard", href: "/hierarchy-dashboard", icon: GitBranch },
   { label: "Systems", href: "/systems", icon: Server },
   { label: "Subsystems", href: "/subsystems", icon: Network },
   { label: "Modules", href: "/modules", icon: Box },

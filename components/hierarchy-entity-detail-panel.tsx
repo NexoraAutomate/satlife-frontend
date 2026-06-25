@@ -26,7 +26,7 @@ interface HierarchyEntityDetailPanelProps {
   selection: HierarchyEntitySelection | null;
   open: boolean;
   onClose: () => void;
-  system: System;
+  systems: System[];
   subsystems: Subsystem[];
   modules: Module[];
   units: Unit[];
@@ -66,7 +66,7 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
 
 function findEntity(
   selection: HierarchyEntitySelection,
-  system: System,
+  systems: System[],
   subsystems: Subsystem[],
   modules: Module[],
   units: Unit[],
@@ -74,7 +74,7 @@ function findEntity(
 ) {
   switch (selection.type) {
     case 'system':
-      return system.id === selection.entityId ? system : undefined;
+      return systems.find((item) => item.id === selection.entityId);
     case 'subsystem':
       return subsystems.find((item) => item.id === selection.entityId);
     case 'module':
@@ -90,7 +90,7 @@ export function HierarchyEntityDetailPanel({
   selection,
   open,
   onClose,
-  system,
+  systems,
   subsystems,
   modules,
   units,
@@ -99,7 +99,7 @@ export function HierarchyEntityDetailPanel({
   statuses = [],
 }: HierarchyEntityDetailPanelProps) {
   const entity = selection
-    ? findEntity(selection, system, subsystems, modules, units, components)
+    ? findEntity(selection, systems, subsystems, modules, units, components)
     : undefined;
 
   const statusName = entity ? getEntityStatusName(entity, statuses) : undefined;
@@ -147,7 +147,6 @@ export function HierarchyEntityDetailPanel({
               <DetailRow label="Part Number" value={entity.part_number} />
               <DetailRow label="Serial Number" value={entity.serial_number} />
               <DetailRow label="Configuration Item" value={entity.configuration_item} />
-              {'sku' in entity ? <DetailRow label="SKU" value={entity.sku} /> : null}
               {selection.type === 'system' && project ? (
                 <DetailRow label="Project" value={project.name} />
               ) : null}

@@ -1,0 +1,130 @@
+'use client';
+
+import { createContext, useContext } from 'react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { HierarchyNodeFieldLines } from '@/components/hierarchy-node-legend';
+import type { HierarchyEntityType, HierarchyNodeData } from '@/lib/system-hierarchy-graph';
+
+const LEVEL_STYLES: Record<
+  HierarchyEntityType,
+  { border: string; badge: string; label: string }
+> = {
+  system: {
+    border: 'border-primary/40',
+    badge: 'bg-primary/10 text-primary',
+    label: 'System',
+  },
+  subsystem: {
+    border: 'border-sky-400/40',
+    badge: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    label: 'Subsystem',
+  },
+  module: {
+    border: 'border-violet-400/40',
+    badge: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    label: 'Module',
+  },
+  unit: {
+    border: 'border-amber-400/40',
+    badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    label: 'Unit',
+  },
+  component: {
+    border: 'border-emerald-400/40',
+    badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    label: 'Component',
+  },
+};
+
+type HierarchyFlowActions = {
+  onToggleDetails: (entityId: number, type: HierarchyEntityType) => void;
+  onNavigate?: (entityId: number, type: HierarchyEntityType) => void;
+};
+
+const HierarchyFlowActionsContext = createContext<HierarchyFlowActions | null>(null);
+
+export const HIERARCHY_FLOW_NODE_TYPES = {
+  hierarchyNode: HierarchyFlowNode,
+};
+
+export function HierarchyFlowActionsProvider({
+  children,
+  onToggleDetails,
+  onNavigate,
+}: {
+  children: React.ReactNode;
+  onToggleDetails: HierarchyFlowActions['onToggleDetails'];
+  onNavigate?: HierarchyFlowActions['onNavigate'];
+}) {
+  return (
+    <HierarchyFlowActionsContext.Provider value={{ onToggleDetails, onNavigate }}>
+      {children}
+    </HierarchyFlowActionsContext.Provider>
+  );
+}
+
+function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
+  const actions = useContext(HierarchyFlowActionsContext);
+  const styles = LEVEL_STYLES[data.type];
+  const highlightState = data.highlightState ?? 'normal';
+
+  const handleToggle = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    actions?.onToggleDetails(data.entityId, data.type);
+  };
+
+  const handleNavigate = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    actions?.onNavigate?.(data.entityId, data.type);
+  };
+
+  return (
+    <>
+      <Handle type="target" position={Position.Top} className="!bg-muted-foreground/40" />
+      <div
+        className={cn(
+          'w-[220px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-all',
+          styles.border,
+          highlightState === 'selected' &&
+            'ring-2 ring-primary shadow-md scale-[1.02] z-10',
+          highlightState === 'dimmed' && 'opacity-45 saturate-50'
+        )}
+      >
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <Badge variant="outline" className={cn('text-[10px] uppercase', styles.badge)}>
+            {styles.label}
+          </Badge>
+          <button
+            type="button"
+            className="nodrag nopan nowheel flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="Toggle details panel"
+            aria-label={`Toggle details for ${data.label}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={handleToggle}
+          >
+            <ChevronRight className="pointer-events-none h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+        {actions?.onNavigate ? (
+          <button
+            type="button"
+            className="nodrag nopan nowheel w-full cursor-pointer text-left"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={handleNavigate}
+          >
+            <p className="truncate text-sm font-semibold hover:text-primary">{data.label}</p>
+          </button>
+        ) : (
+          <p className="truncate text-sm font-semibold">{data.label}</p>
+        )}
+        <HierarchyNodeFieldLines data={data} />
+      </div>
+      <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground/40" />
+    </>
+  );
+}

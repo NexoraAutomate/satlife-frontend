@@ -14,7 +14,6 @@ const LEGEND_FIELDS: {
   { key: 'partNumber', label: 'Part Number' },
   { key: 'createdAt', label: 'Created Date' },
   { key: 'description', label: 'Description' },
-  { key: 'sku', label: 'SKU' },
 ];
 
 interface HierarchyNodeLegendProps {
@@ -79,7 +78,6 @@ export function HierarchyNodeFieldLines({
     partNumber?: string;
     createdAt?: string;
     description?: string;
-    sku?: string;
     type?: string;
     fieldVisibility?: HierarchyNodeFieldVisibility;
   };
@@ -90,7 +88,6 @@ export function HierarchyNodeFieldLines({
     partNumber: false,
     createdAt: false,
     description: false,
-    sku: false,
   };
 
   const lines: { label: string; value: string }[] = [];
@@ -110,9 +107,6 @@ export function HierarchyNodeFieldLines({
   }
   if (visibility.description && data.description?.trim()) {
     lines.push({ label: 'Desc', value: data.description });
-  }
-  if (visibility.sku && data.sku?.trim()) {
-    lines.push({ label: 'SKU', value: data.sku });
   }
 
   if (lines.length === 0) return null;

@@ -53,9 +53,6 @@ export function getEntityStatusName(
   entity: EntityWithStatus,
   statuses: Status[]
 ): string | undefined {
-  if (entity.status?.name) {
-    return entity.status.name;
-  }
-
-  return statuses.find((item) => item.id === entity.status_id)?.name;
+  const statusName = resolveStatusName(entity, statuses);
+  return statusName !== 'Unknown' ? statusName : undefined;
 }

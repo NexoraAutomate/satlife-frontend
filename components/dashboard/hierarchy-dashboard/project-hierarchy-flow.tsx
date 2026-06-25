@@ -1,18 +1,21 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Background,
   Controls,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { cn } from '@/lib/utils';
 import {
-  buildSystemHierarchyTree,
-  hierarchyTreeToFlow,
+  buildProjectHierarchyFlow,
+  type HierarchyDashboardSelection,
+} from '@/lib/project-hierarchy-dashboard';
+import {
   DEFAULT_NODE_FIELD_VISIBILITY,
   type HierarchyEntityType,
   type HierarchyNodeFieldVisibility,
@@ -36,8 +39,9 @@ import type {
   Unit,
 } from '@/lib/models';
 
-interface SystemHierarchyFlowProps {
-  system: System;
+interface ProjectHierarchyFlowProps {
+  selection: HierarchyDashboardSelection;
+  systems: System[];
   subsystems: Subsystem[];
   modules: Module[];
   units: Unit[];
@@ -45,10 +49,28 @@ interface SystemHierarchyFlowProps {
   project?: Project;
   statuses?: Status[];
   className?: string;
+  onNodeSelect?: (entityId: number, type: HierarchyEntityType) => void;
 }
 
-export function SystemHierarchyFlow({
-  system,
+function FitViewOnSelectionChange({ dependencyKey }: { dependencyKey: string }) {
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    if (!dependencyKey) return;
+
+    const frame = requestAnimationFrame(() => {
+      fitView({ padding: 0.2, duration: 250 });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [dependencyKey, fitView]);
+
+  return null;
+}
+
+export function ProjectHierarchyFlow({
+  selection,
+  systems,
   subsystems,
   modules,
   units,
@@ -56,7 +78,8 @@ export function SystemHierarchyFlow({
   project,
   statuses = [],
   className,
-}: SystemHierarchyFlowProps) {
+  onNodeSelect,
+}: ProjectHierarchyFlowProps) {
   const [panel, setPanel] = useState<{
     open: boolean;
     selection: HierarchyEntitySelection | null;
@@ -76,20 +99,23 @@ export function SystemHierarchyFlow({
     });
   }, []);
 
-  const handleClosePanel = useCallback(() => {
-    setPanel((prev) => ({ ...prev, open: false }));
-  }, []);
+  const handleNavigate = useCallback(
+    (entityId: number, type: HierarchyEntityType) => {
+      onNodeSelect?.(entityId, type);
+    },
+    [onNodeSelect]
+  );
 
   const { nodes, edges } = useMemo(() => {
-    const tree = buildSystemHierarchyTree(
-      system,
+    const flow = buildProjectHierarchyFlow(
+      selection,
+      systems,
       subsystems,
       modules,
       units,
       components,
       statuses
     );
-    const flow = hierarchyTreeToFlow(tree);
 
     return {
       nodes: flow.nodes.map((node) => ({
@@ -101,9 +127,39 @@ export function SystemHierarchyFlow({
       })),
       edges: flow.edges,
     };
-  }, [system, subsystems, modules, units, components, fieldVisibility, statuses]);
+  }, [
+    selection,
+    systems,
+    subsystems,
+    modules,
+    units,
+    components,
+    statuses,
+    fieldVisibility,
+  ]);
 
-  if (nodes.length <= 1 && edges.length === 0) {
+  const fitViewKey = useMemo(
+    () =>
+      [
+        selection.projectId,
+        selection.systemId,
+        selection.subsystemId,
+        selection.moduleId,
+        selection.unitId,
+        selection.componentId,
+      ]
+        .filter(Boolean)
+        .join(':'),
+    [selection]
+  );
+
+  useEffect(() => {
+    if (!selection.projectId) {
+      setPanel({ open: false, selection: null });
+    }
+  }, [selection.projectId]);
+
+  if (!selection.projectId) {
     return (
       <div
         className={cn(
@@ -112,7 +168,22 @@ export function SystemHierarchyFlow({
         )}
       >
         <p className="text-sm text-muted-foreground">
-          No subsystems found for this system. Add subsystems to build the hierarchy graph.
+          Select a running project to view its hierarchy.
+        </p>
+      </div>
+    );
+  }
+
+  if (nodes.length === 0) {
+    return (
+      <div
+        className={cn(
+          'flex h-full min-h-[420px] items-center justify-center rounded-lg border border-dashed bg-muted/20',
+          className
+        )}
+      >
+        <p className="text-sm text-muted-foreground">
+          No systems found for this project. Add systems to build the hierarchy graph.
         </p>
       </div>
     );
@@ -131,13 +202,14 @@ export function SystemHierarchyFlow({
           onChange={setFieldVisibility}
         />
         <ReactFlowProvider>
-          <HierarchyFlowActionsProvider onToggleDetails={handleToggleDetails}>
+          <HierarchyFlowActionsProvider
+            onToggleDetails={handleToggleDetails}
+            onNavigate={handleNavigate}
+          >
             <ReactFlow
               nodes={nodes}
               edges={edges}
               nodeTypes={HIERARCHY_FLOW_NODE_TYPES}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
               nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable={false}
@@ -145,6 +217,7 @@ export function SystemHierarchyFlow({
               onNodeClick={() => undefined}
               proOptions={{ hideAttribution: true }}
             >
+              <FitViewOnSelectionChange dependencyKey={fitViewKey} />
               <Background gap={16} size={1} />
               <Controls showInteractive={false} />
               <MiniMap
@@ -161,8 +234,8 @@ export function SystemHierarchyFlow({
       <HierarchyEntityDetailPanel
         selection={panel.selection}
         open={panel.open}
-        onClose={handleClosePanel}
-        systems={[system]}
+        onClose={() => setPanel((prev) => ({ ...prev, open: false }))}
+        systems={systems}
         subsystems={subsystems}
         modules={modules}
         units={units}

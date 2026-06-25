@@ -7,6 +7,7 @@ import type {
   System,
   Unit,
 } from '@/lib/models';
+import { resolveStatusName } from '@/lib/entity-status';
 
 export type HierarchyEntityType =
   | 'system'
@@ -25,7 +26,6 @@ export interface HierarchyTreeNode {
   partNumber?: string;
   createdAt?: string;
   description?: string;
-  sku?: string;
   detailPath: string;
   children: HierarchyTreeNode[];
 }
@@ -36,7 +36,6 @@ export interface HierarchyNodeFieldVisibility {
   partNumber: boolean;
   createdAt: boolean;
   description: boolean;
-  sku: boolean;
 }
 
 export const DEFAULT_NODE_FIELD_VISIBILITY: HierarchyNodeFieldVisibility = {
@@ -45,7 +44,6 @@ export const DEFAULT_NODE_FIELD_VISIBILITY: HierarchyNodeFieldVisibility = {
   partNumber: false,
   createdAt: false,
   description: false,
-  sku: false,
 };
 
 export interface HierarchyNodeData extends Record<string, unknown> {
@@ -57,9 +55,9 @@ export interface HierarchyNodeData extends Record<string, unknown> {
   partNumber?: string;
   createdAt?: string;
   description?: string;
-  sku?: string;
   detailPath: string;
   fieldVisibility?: HierarchyNodeFieldVisibility;
+  highlightState?: 'selected' | 'dimmed' | 'normal';
 }
 
 const DETAIL_PATH: Record<HierarchyEntityType, (id: number) => string> = {
@@ -75,11 +73,11 @@ const NODE_HEIGHT = 88;
 const HORIZONTAL_GAP = 48;
 const VERTICAL_GAP = 120;
 
-function makeNodeId(type: HierarchyEntityType, id: number) {
+export function makeNodeId(type: HierarchyEntityType, id: number) {
   return `${type}-${id}`;
 }
 
-function mapEntityFields(
+export function mapEntityFields(
   entity: {
     name: string;
     description?: string;
@@ -87,23 +85,20 @@ function mapEntityFields(
     serial_number?: string;
     created_at?: string;
     status_id?: number;
-    status?: { name: string };
-    sku?: string;
+    status_name?: string;
+    status?: { status_name?: string };
   },
   statuses: Status[] = []
 ) {
-  const statusName =
-    entity.status?.name ??
-    statuses.find((item) => item.id === entity.status_id)?.name;
+  const statusName = resolveStatusName(entity, statuses);
 
   return {
     name: entity.name,
-    status: statusName,
+    status: statusName !== 'Unknown' ? statusName : undefined,
     serialNumber: entity.serial_number,
     partNumber: entity.part_number,
     createdAt: entity.created_at,
     description: entity.description,
-    sku: entity.sku,
   };
 }
 
@@ -212,7 +207,6 @@ export function hierarchyTreeToFlow(
           partNumber: node.partNumber,
           createdAt: node.createdAt,
           description: node.description,
-          sku: node.sku,
           detailPath: node.detailPath,
         },
       });
