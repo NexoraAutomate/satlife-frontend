@@ -59,7 +59,7 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <p className="text-sm break-words">{value}</p>
+      <p className="text-sm wrap-break-words">{value}</p>
     </div>
   );
 }

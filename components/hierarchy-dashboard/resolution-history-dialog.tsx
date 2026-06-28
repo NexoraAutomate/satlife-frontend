@@ -80,7 +80,7 @@ export function ResolutionHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] min-w-[min(100vw-2rem,72rem)] max-w-[72rem] overflow-hidden">
+      <DialogContent className="max-h-[90vh] min-w-[min(100vw-2rem,72rem)] max-w-6xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>Resolution History — {nodeLabel}</DialogTitle>
           <DialogDescription>
