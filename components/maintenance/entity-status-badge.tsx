@@ -7,6 +7,7 @@ interface EntityStatusBadgeProps {
   className?: string;
 }
 
+/** Legacy badge for raw API status strings outside workflow surfaces. */
 export function EntityStatusBadge({ status, className }: EntityStatusBadgeProps) {
   return <StatusBadge status={status} className={className} />;
 }

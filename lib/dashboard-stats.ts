@@ -53,6 +53,19 @@ const ACTIVE_FAULT_STATUSES: FaultyEntityStatus[] = [
   FaultyEntityStatus.CONFIRMED_FAULTY,
 ];
 
+function normalizeFaultStatusForStats(status: FaultyEntityStatus | string): string {
+  if (status === FaultyEntityStatus.SUSPECTED || status === 'suspected') {
+    return FaultyEntityStatus.IDENTIFIED;
+  }
+  if (
+    status === FaultyEntityStatus.HEALTHY ||
+    status === FaultyEntityStatus.FALSEPOSITIVE
+  ) {
+    return FaultyEntityStatus.NO_FAULT_FOUND;
+  }
+  return String(status);
+}
+
 export function countByField<T>(
   items: T[],
   getKey: (item: T) => string,

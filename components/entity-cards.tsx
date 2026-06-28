@@ -22,6 +22,8 @@ interface EntityCardsProps {
     status_name?: string;
     status?: { status_name: string };
     description?: string;
+    picture_url?: string;
+    installation_date?: string;
   }>;
   statuses?: Status[];
   onAdd: () => void;
@@ -86,7 +88,20 @@ export function EntityCards({
                             {entity.description}
                           </p>
                         )}
+                        {entity.installation_date ? (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Installed {new Date(entity.installation_date).toLocaleDateString()}
+                          </p>
+                        ) : null}
                       </div>
+                      {entity.picture_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={entity.picture_url}
+                          alt=""
+                          className="h-10 w-10 shrink-0 rounded object-cover border"
+                        />
+                      ) : null}
                       <div className="flex shrink-0 items-center gap-1">
                         {statusLabel !== 'Unknown' && (
                           <StatusBadge status={statusLabel} />

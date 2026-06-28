@@ -4,37 +4,36 @@ import { useMemo } from 'react';
 import { Check, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import type { FaultyEntity, MaintenanceAction } from '@/lib/models';
+import { FaultyEntityTreeList } from '@/components/maintenance/faulty-entity-tree-list';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { StatusBadge } from '@/components/status-badge';
-import type { FaultyEntity } from '@/lib/models';
+  FaultyEntityWorkflowStatus,
+  isTerminalDisplayStatus,
+  mapFaultyEntityStatusFromApi,
+} from '@/lib/maintenance-workflow';
 
 interface MaintenanceFaultyEntitiesTableProps {
   entities: FaultyEntity[];
+  actions?: MaintenanceAction[];
   selectedIds: number[];
   onToggleSelect: (entityId: number) => void;
   onToggleSelectAll: () => void;
   onView?: (entity: FaultyEntity) => void;
   onConfirmFaulty?: (entity: FaultyEntity) => void;
-  onMarkHealthy?: (entity: FaultyEntity) => void;
+  onNoFaultFound?: (entity: FaultyEntity) => void;
   onResolve?: (entity: FaultyEntity) => void;
   isLoading?: boolean;
 }
 
 export function MaintenanceFaultyEntitiesTable({
   entities,
+  actions = [],
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
   onView,
   onConfirmFaulty,
-  onMarkHealthy,
+  onNoFaultFound,
   onResolve,
   isLoading = false,
 }: MaintenanceFaultyEntitiesTableProps) {
@@ -48,89 +47,86 @@ export function MaintenanceFaultyEntitiesTable({
   }
 
   if (!entities || entities.length === 0) {
-    return <div className="text-sm text-muted-foreground py-4">No suspected or confirmed entities found.</div>;
+    return (
+      <div className="text-sm text-muted-foreground py-4">
+        No faulty entities found for this case.
+      </div>
+    );
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="w-10">
-              <Checkbox checked={allSelected} onCheckedChange={onToggleSelectAll} />
-            </TableHead>
-            <TableHead>Part Number</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Detected</TableHead>
-            <TableHead className="w-28">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entities.map((entity) => (
-            <TableRow key={entity.id} className="hover:bg-muted/50">
-              <TableCell>
-                <Checkbox
-                  checked={selectedIds.includes(entity.id)}
-                  onCheckedChange={() => onToggleSelect(entity.id)}
-                />
-              </TableCell>
-              <TableCell className="font-medium">{entity.part_number}</TableCell>
-              <TableCell>{entity.entity_name || entity.part_number || entity.serial_number || 'No details'}</TableCell>
-              <TableCell>
-                <StatusBadge status={entity.status} />
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {entity.identified_at ? new Date(entity.identified_at).toLocaleDateString() : 'Unknown'}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1">
-                  {onView && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onView(entity)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {onConfirmFaulty && entity.status !== 'confirmed_faulty' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onConfirmFaulty(entity)}
-                      className="h-8 w-8 p-0"
-                    >
-                      ✓
-                    </Button>
-                  )}
-                  {onResolve && entity.status !== 'resolved' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onResolve(entity)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {onMarkHealthy && entity.status !== 'healthy' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onMarkHealthy(entity)}
-                      className="h-8 w-8 p-0"
-                    >
-                      H
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+        <Checkbox checked={allSelected} onCheckedChange={onToggleSelectAll} />
+        <span className="text-sm text-muted-foreground">Select all entities</span>
+      </div>
+
+      <FaultyEntityTreeList
+        entities={entities}
+        actions={actions}
+        emptyMessage="No faulty entities found for this case."
+        renderLeading={(entity) => (
+          <Checkbox
+            checked={selectedIds.includes(entity.id)}
+            onCheckedChange={() => onToggleSelect(entity.id)}
+          />
+        )}
+        renderActions={(entity) => {
+          const entityActions = actions.filter((a) => a.faulty_entity_id === entity.id);
+          const displayStatus = mapFaultyEntityStatusFromApi(entity, entityActions);
+          const isTerminal = isTerminalDisplayStatus(displayStatus);
+
+          return (
+            <>
+              {onView ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onView(entity)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              ) : null}
+              {onConfirmFaulty &&
+              displayStatus !== FaultyEntityWorkflowStatus.CONFIRMED_FAULTY &&
+              !isTerminal ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onConfirmFaulty(entity)}
+                  className="h-8 w-8 p-0"
+                  title="Confirm fault"
+                >
+                  ✓
+                </Button>
+              ) : null}
+              {onResolve && !isTerminal ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onResolve(entity)}
+                  className="h-8 w-8 p-0"
+                  title="Resolve"
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+              ) : null}
+              {onNoFaultFound && !isTerminal ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onNoFaultFound(entity)}
+                  className="h-8 px-2 text-xs"
+                  title="No fault found"
+                >
+                  NFF
+                </Button>
+              ) : null}
+            </>
+          );
+        }}
+      />
     </div>
   );
 }

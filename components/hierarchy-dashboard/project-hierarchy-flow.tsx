@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css';
 import { cn } from '@/lib/utils';
 import {
   buildProjectHierarchyFlow,
+  collectSubtreeFromNode,
   type HierarchyDashboardSelection,
 } from '@/lib/project-hierarchy-dashboard';
 import {
@@ -25,6 +26,17 @@ import {
   type HierarchyEntitySelection,
 } from '@/components/hierarchy-entity-detail-panel';
 import { HierarchyNodeLegend } from '@/components/hierarchy-node-legend';
+import { BuildTimelineDialog } from '@/components/hierarchy-dashboard/build-timeline-dialog';
+import {
+  invalidateProjectResolutionCache,
+  useProjectResolutionHistory,
+} from '@/components/hierarchy-dashboard/use-project-resolution-history';
+import {
+  filterRecordsForNode,
+  loadDeliveriesForCases,
+  makeEntityKey,
+} from '@/lib/resolution-history-matching';
+import type { MaintenanceDelivery } from '@/lib/models';
 import {
   HIERARCHY_FLOW_NODE_TYPES,
   HierarchyFlowActionsProvider,
@@ -84,9 +96,32 @@ export function ProjectHierarchyFlow({
     open: boolean;
     selection: HierarchyEntitySelection | null;
   }>({ open: false, selection: null });
+  const [resolutionDialog, setResolutionDialog] = useState<{
+    open: boolean;
+    entityId: number;
+    type: HierarchyEntityType;
+    label: string;
+  } | null>(null);
   const [fieldVisibility, setFieldVisibility] = useState<HierarchyNodeFieldVisibility>(
     DEFAULT_NODE_FIELD_VISIBILITY
   );
+  const [resolutionDeliveries, setResolutionDeliveries] = useState<MaintenanceDelivery[]>([]);
+
+  const {
+    records: projectResolutionRecords,
+    matchContext,
+    resolvedEntityIds,
+    subtreeByEntityId,
+    nodesWithHistory,
+    refresh: refreshResolutionHistory,
+  } = useProjectResolutionHistory({
+    projectId: selection.projectId,
+    systems,
+    subsystems,
+    modules,
+    units,
+    components,
+  });
 
   const handleToggleDetails = useCallback((entityId: number, type: HierarchyEntityType) => {
     setPanel((prev) => {
@@ -106,6 +141,91 @@ export function ProjectHierarchyFlow({
     [onNodeSelect]
   );
 
+  const handleViewResolutionHistory = useCallback(
+    (entityId: number, type: HierarchyEntityType) => {
+      const label =
+        systems.find((system) => type === 'system' && system.id === entityId)?.name ??
+        subsystems.find((subsystem) => type === 'subsystem' && subsystem.id === entityId)?.name ??
+        modules.find((module) => type === 'module' && module.id === entityId)?.name ??
+        units.find((unit) => type === 'unit' && unit.id === entityId)?.name ??
+        components.find((component) => type === 'component' && component.id === entityId)?.name ??
+        'Entity';
+
+      setResolutionDialog({
+        open: true,
+        entityId,
+        type,
+        label,
+      });
+    },
+    [systems, subsystems, modules, units, components]
+  );
+
+  const resolutionDialogInstallationRefs = useMemo(() => {
+    if (!resolutionDialog?.open) return [];
+    return collectSubtreeFromNode(
+      resolutionDialog.type,
+      resolutionDialog.entityId,
+      systems,
+      subsystems,
+      modules,
+      units,
+      components
+    );
+  }, [
+    resolutionDialog,
+    systems,
+    subsystems,
+    modules,
+    units,
+    components,
+  ]);
+
+  const resolutionDialogRecords = useMemo(() => {
+    if (!resolutionDialog?.open) return [];
+    return filterRecordsForNode(
+      projectResolutionRecords,
+      resolutionDialog.type,
+      resolutionDialog.entityId,
+      systems,
+      subsystems,
+      modules,
+      units,
+      components,
+      resolvedEntityIds,
+      subtreeByEntityId
+    );
+  }, [
+    resolutionDialog,
+    projectResolutionRecords,
+    systems,
+    subsystems,
+    modules,
+    units,
+    components,
+    resolvedEntityIds,
+  ]);
+
+  useEffect(() => {
+    if (!resolutionDialog?.open) {
+      setResolutionDeliveries([]);
+      return;
+    }
+
+    const caseIds = resolutionDialogRecords
+      .map((record) => record.maintenance_case_id)
+      .filter((id): id is number => typeof id === 'number' && id > 0);
+
+    let cancelled = false;
+    void loadDeliveriesForCases(caseIds).then((deliveries) => {
+      if (!cancelled) setResolutionDeliveries(deliveries);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolutionDialog?.open, resolutionDialogRecords]);
+
   const { nodes, edges } = useMemo(() => {
     const flow = buildProjectHierarchyFlow(
       selection,
@@ -123,6 +243,9 @@ export function ProjectHierarchyFlow({
         data: {
           ...node.data,
           fieldVisibility,
+          hasResolutionHistory: nodesWithHistory.has(
+            makeEntityKey(node.data.type, node.data.entityId)
+          ),
         },
       })),
       edges: flow.edges,
@@ -136,6 +259,7 @@ export function ProjectHierarchyFlow({
     components,
     statuses,
     fieldVisibility,
+    nodesWithHistory,
   ]);
 
   const fitViewKey = useMemo(
@@ -205,6 +329,7 @@ export function ProjectHierarchyFlow({
           <HierarchyFlowActionsProvider
             onToggleDetails={handleToggleDetails}
             onNavigate={handleNavigate}
+            onViewResolutionHistory={handleViewResolutionHistory}
           >
             <ReactFlow
               nodes={nodes}
@@ -224,7 +349,7 @@ export function ProjectHierarchyFlow({
                 nodeStrokeWidth={3}
                 pannable
                 zoomable
-                className="!bg-background/80"
+                className="bg-background/80!"
               />
             </ReactFlow>
           </HierarchyFlowActionsProvider>
@@ -243,6 +368,28 @@ export function ProjectHierarchyFlow({
         project={project}
         statuses={statuses}
       />
+
+      {resolutionDialog && selection.projectId ? (
+        <BuildTimelineDialog
+          open={resolutionDialog.open}
+          onOpenChange={(open) => {
+            if (!open) {
+              setResolutionDialog(null);
+            }
+          }}
+          nodeLabel={resolutionDialog.label}
+          projectId={selection.projectId}
+          records={resolutionDialogRecords}
+          matchContext={matchContext}
+          subtreeByEntityId={subtreeByEntityId}
+          installationRefs={resolutionDialogInstallationRefs}
+          deliveries={resolutionDeliveries}
+          onHistoryRefresh={() => {
+            invalidateProjectResolutionCache(selection.projectId!);
+            refreshResolutionHistory();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

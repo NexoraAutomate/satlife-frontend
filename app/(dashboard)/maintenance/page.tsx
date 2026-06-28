@@ -19,6 +19,7 @@ import { Plus, Search, RefreshCw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import * as maintenanceApi from '@/lib/api';
 import * as MaintenanceTypes from '@/lib/models';
+import { maintenanceService } from '@/services/maintenance';
 import { MaintenanceMiniDashboard } from '@/components/maintenance/MaintenanceMiniDashboard';
 import { MaintenanceLookupDialog } from '@/components/maintenance/MaintenanceLookupDialog';
 import { MaintenanceCaseDialog } from '@/components/maintenance/MaintenanceCaseDialog';
@@ -256,9 +257,9 @@ export default function MaintenancePage() {
     }
   };
 
-  const getMaintenanceActions = async (faultyEntityId: number) => {
+  const getMaintenanceActions = async (caseId: number, faultyEntityIds: number[]) => {
     try {
-      const res = await maintenanceApi.maintenanceActions.listByFaultyEntityId(faultyEntityId);
+      const res = await maintenanceService.getCaseTimeline(caseId, faultyEntityIds);
       setMaintenanceActions(res.data);
       return res.data;
     } catch (err) {
@@ -337,8 +338,8 @@ export default function MaintenancePage() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="under_inspection">Under Inspection</SelectItem>
-              <SelectItem value="under_repair">Under Repair</SelectItem>
+              <SelectItem value="under_inspection">Under Investigation</SelectItem>
+              <SelectItem value="under_repair">Repair In Progress</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
               <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>

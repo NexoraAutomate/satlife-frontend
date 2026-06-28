@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, BugPlay, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/status-badge';
 import {
   Select,
   SelectContent,
@@ -11,27 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FaultyEntityStatus, FaultType } from '@/lib/models';
+import { FaultyEntityStatus, FaultType, type FaultyEntity, type MaintenanceAction } from '@/lib/models';
 import type { InvestigationTreeNode, TreeVisualContext } from '@/lib/maintenance-tree';
 import { buildTreeVisualContext } from '@/lib/maintenance-tree';
+import { FaultyEntityStatusBadge } from '@/components/maintenance/badges';
 
 interface InvestigationTreeProps {
   nodes: InvestigationTreeNode[];
+  entities?: FaultyEntity[];
+  actions?: MaintenanceAction[];
   caseStatus?: string;
   onSelect?: (node: InvestigationTreeNode) => void;
-  onMarkHealthy?: (node: InvestigationTreeNode) => void;
+  onNoFaultFound?: (node: InvestigationTreeNode) => void;
   onFaultTypeChange?: (nodeId: number, faultType: string) => void;
 }
-
-const statusBadgeClass: Partial<Record<string, string>> = {
-  [FaultyEntityStatus.HEALTHY]: 'bg-emerald-200 text-emerald-900',
-  [FaultyEntityStatus.CONFIRMED_FAULTY]: 'bg-red-200 text-red-900',
-  [FaultyEntityStatus.SUSPECTED]: 'bg-amber-200 text-amber-900',
-  [FaultyEntityStatus.UNDER_INSPECTION]: 'bg-blue-200 text-blue-900',
-  [FaultyEntityStatus.IDENTIFIED]: 'bg-orange-200 text-orange-900',
-  [FaultyEntityStatus.RESOLVED]: 'bg-slate-200 text-slate-900',
-  [FaultyEntityStatus.FALSEPOSITIVE]: 'bg-slate-200 text-slate-700',
-};
 
 function PulseIndicator({ pingClass, dotClass }: { pingClass: string; dotClass: string }) {
   return (
@@ -46,23 +38,27 @@ function TreeNode({
   node,
   depth = 0,
   visual,
+  entities,
+  actions,
   onSelect,
   onFaultTypeChange,
 }: {
   node: InvestigationTreeNode;
   depth?: number;
   visual: TreeVisualContext;
+  entities: FaultyEntity[];
+  actions: MaintenanceAction[];
   onSelect?: (node: InvestigationTreeNode) => void;
   onFaultTypeChange?: (nodeId: number, faultType: string) => void;
 }) {
   const hasChildren = node.children.length > 0;
   const [open, setOpen] = useState(depth < 2);
+  const entity = entities.find((e) => e.id === node.id);
 
   const showRedPing = visual.redPingIds.has(node.id);
   const showAmberPing = visual.amberPingIds.has(node.id);
   const showSpin = visual.spinIds.has(node.id);
   const isConfirmedFaulty = node.status === FaultyEntityStatus.CONFIRMED_FAULTY;
-  const badgeClass = statusBadgeClass[node.status];
 
   return (
     <div className="space-y-1">
@@ -112,9 +108,14 @@ function TreeNode({
             </p>
           </div>
 
-          {badgeClass && (
-            <StatusBadge className={`shrink-0 px-2 ${badgeClass}`} status={node.status} />
-          )}
+          {entity ? (
+            <FaultyEntityStatusBadge
+              entity={entity}
+              allEntities={entities}
+              actions={actions}
+              className="shrink-0"
+            />
+          ) : null}
         </div>
 
         {isConfirmedFaulty && (
@@ -164,6 +165,8 @@ function TreeNode({
               node={child}
               depth={depth + 1}
               visual={visual}
+              entities={entities}
+              actions={actions}
               onSelect={onSelect}
               onFaultTypeChange={onFaultTypeChange}
             />
@@ -176,14 +179,15 @@ function TreeNode({
 
 export function InvestigationTree({
   nodes,
+  entities = [],
+  actions = [],
   caseStatus,
   onSelect,
-  onMarkHealthy,
   onFaultTypeChange,
 }: InvestigationTreeProps) {
   const visual = useMemo(
-    () => buildTreeVisualContext(nodes, caseStatus),
-    [nodes, caseStatus]
+    () => buildTreeVisualContext(nodes, caseStatus, entities, actions),
+    [nodes, caseStatus, entities, actions]
   );
 
   if (!nodes || nodes.length === 0) {
@@ -201,6 +205,8 @@ export function InvestigationTree({
           key={node.id}
           node={node}
           visual={visual}
+          entities={entities}
+          actions={actions}
           onSelect={onSelect}
           onFaultTypeChange={onFaultTypeChange}
         />

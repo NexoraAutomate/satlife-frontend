@@ -39,15 +39,15 @@ export const FAULT_PING_STYLES: Partial<
     dot: 'bg-orange-500',
     label: 'Identified',
   },
+  [FaultyEntityStatus.SUSPECTED]: {
+    ping: 'bg-amber-500',
+    dot: 'bg-amber-400',
+    label: 'Potentially affected',
+  },
   [FaultyEntityStatus.UNDER_INSPECTION]: {
     ping: 'bg-blue-600',
     dot: 'bg-blue-500',
     label: 'Under inspection',
-  },
-  [FaultyEntityStatus.SUSPECTED]: {
-    ping: 'bg-amber-500',
-    dot: 'bg-amber-400',
-    label: 'Suspected',
   },
 };
 

@@ -79,6 +79,9 @@ export default function HierarchyDashboardPage() {
   );
 
   const systemOptions = useMemo(() => {
+    console.log(projects);
+    console.log(systems);
+    console.log(selection.projectId);
     if (!selection.projectId) return [];
     return getSystemsForProject(systems, selection.projectId).map((system) => ({
       value: String(system.id),
@@ -157,7 +160,7 @@ export default function HierarchyDashboardPage() {
   );
 
   const hasSelection = Boolean(
-    selection.projectId ||
+      selection.projectId ||
       selection.systemId ||
       selection.subsystemId ||
       selection.moduleId ||

@@ -19,6 +19,7 @@ import type { Hierarchy } from '@/lib/models';
 import * as Models from '@/lib/models';
 import { resolveStatusName } from '@/lib/entity-status';
 import { getSubsystemCountBySystemId, getCount } from '@/lib/entity-counts';
+import { parseHierarchyInstallPayload } from '@/lib/hierarchy-install-fields';
 import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
@@ -31,7 +32,7 @@ const SYSTEM_STATUS_NAMES = ['Design', 'Development', 'Testing', 'Operational', 
 export default function SystemsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { systems, projects, subsystems, loading, createSystem, updateSystem, deleteSystem, statuses: storeStatuses } = useDataStore();
+  const { systems, projects, subsystems, loading, createSystem, updateSystem, deleteSystem, statuses: storeStatuses, users } = useDataStore();
   const faultMap = useEntityFaultMap();
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -51,6 +52,8 @@ export default function SystemsPage() {
     description: '',
     project_id: 0,
     status_id: 0,
+    installation_date: '',
+    installed_by_id: '',
   });
 
   const subsystemCountBySystem = useMemo(
@@ -100,8 +103,21 @@ export default function SystemsPage() {
       return;
     }
     try {
-      await createSystem(formData);
-      setFormData({ name: '', description: '', project_id: 0, status_id: statuses[0]?.id ?? 0 });
+      await createSystem({
+        name: formData.name,
+        description: formData.description,
+        project_id: formData.project_id,
+        status_id: formData.status_id,
+        ...parseHierarchyInstallPayload(formData),
+      });
+      setFormData({
+        name: '',
+        description: '',
+        project_id: 0,
+        status_id: statuses[0]?.id ?? 0,
+        installation_date: '',
+        installed_by_id: '',
+      });
       setIsCreateOpen(false);
     } catch {
       // Error handled by DataStore
@@ -115,8 +131,21 @@ export default function SystemsPage() {
       return;
     }
     try {
-      await updateSystem(editingId, formData);
-      setFormData({ name: '', description: '', project_id: 0, status_id: statuses[0]?.id ?? 0 });
+      await updateSystem(editingId, {
+        name: formData.name,
+        description: formData.description,
+        project_id: formData.project_id,
+        status_id: formData.status_id,
+        ...parseHierarchyInstallPayload(formData),
+      });
+      setFormData({
+        name: '',
+        description: '',
+        project_id: 0,
+        status_id: statuses[0]?.id ?? 0,
+        installation_date: '',
+        installed_by_id: '',
+      });
       setEditingId(null);
       setIsEditOpen(false);
     } catch {
@@ -140,9 +169,19 @@ export default function SystemsPage() {
       description: system.description,
       project_id: system.project_id,
       status_id: system.status_id ?? 0,
+      installation_date: system.installation_date
+        ? system.installation_date.slice(0, 10)
+        : '',
+      installed_by_id: system.installed_by_id ? String(system.installed_by_id) : '',
     });
     setIsEditOpen(true);
   }
+
+  const installerLabel = (userId?: number) => {
+    if (!userId) return '—';
+    const user = users.find((item) => item.id === userId);
+    return user?.full_name || user?.username || `User #${userId}`;
+  };
 
   useEffect(() => {
     setStatusFilter(statusFilterParam || 'all');
@@ -331,6 +370,36 @@ export default function SystemsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Installation Date</Label>
+                <Input
+                  type="date"
+                  value={formData.installation_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, installation_date: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Installed By</Label>
+                <Select
+                  value={formData.installed_by_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, installed_by_id: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select installer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={String(user.id)}>
+                        {user.full_name || user.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex gap-2 justify-end pt-4">
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
@@ -355,6 +424,8 @@ export default function SystemsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Install Date</TableHead>
+                  <TableHead>Installer</TableHead>
                   <TableHead>Subsystems</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -362,7 +433,7 @@ export default function SystemsPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No systems found
                     </TableCell>
                   </TableRow>
@@ -383,6 +454,12 @@ export default function SystemsPage() {
                         <TableCell>
                           <StatusBadge status={getStatusName(system)} />
                         </TableCell>
+                        <TableCell>
+                          {system.installation_date
+                            ? new Date(system.installation_date).toLocaleDateString()
+                            : '—'}
+                        </TableCell>
+                        <TableCell>{installerLabel(system.installed_by_id)}</TableCell>
                         <TableCell>
                           <EntityCountCell
                             count={getCount(subsystemCountBySystem, system.id)}
@@ -491,6 +568,36 @@ export default function SystemsPage() {
                   {statuses.map((status) => (
                     <SelectItem key={status.id} value={status.id.toString()}>
                       {status.status_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Installation Date</Label>
+              <Input
+                type="date"
+                value={formData.installation_date}
+                onChange={(e) =>
+                  setFormData({ ...formData, installation_date: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Installed By</Label>
+              <Select
+                value={formData.installed_by_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, installed_by_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select installer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={String(user.id)}>
+                      {user.full_name || user.username}
                     </SelectItem>
                   ))}
                 </SelectContent>

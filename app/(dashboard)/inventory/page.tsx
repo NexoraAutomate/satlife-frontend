@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import * as api from '@/lib/api';
 import type { Hierarchy, Inventory } from '@/lib/models';
+import { useDataStore } from '@/lib/data-store';
 
 type EntityType = 'system' | 'subsystem' | 'module' | 'unit' | 'component';
 
@@ -31,6 +32,7 @@ function enrichInventoryItems(items: Inventory[]): InventoryItem[] {
 }
 
 export default function InventoryPage() {
+  const { users } = useDataStore();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -50,7 +52,12 @@ export default function InventoryPage() {
     oem_name: '',
     manufacturer_part_number: '',
     location: '',
+    holder_user_id: '',
+    added_date: '',
+    shelf_life_expires_at: '',
+    picture_url: '',
   });
+  const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
 
   useEffect(() => {
     const fetchHierarchyCategories = async () => {
@@ -93,6 +100,44 @@ export default function InventoryPage() {
     return matchesType && matchesSearch;
   });
 
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      inventory_type: 'component',
+      serial_number: '',
+      quantity: 0,
+      description: '',
+      oem_name: '',
+      manufacturer_part_number: '',
+      location: '',
+      holder_user_id: '',
+      added_date: '',
+      shelf_life_expires_at: '',
+      picture_url: '',
+    });
+    setPendingAttachment(null);
+    setSelectedEntityType('component');
+  };
+
+  const buildInventoryPayload = () => ({
+    name: formData.name,
+    inventory_type: selectedEntityType,
+    serial_number: formData.serial_number,
+    quantity: formData.quantity,
+    description: formData.description,
+    oem_name: formData.oem_name,
+    manufacturer_part_number: formData.manufacturer_part_number,
+    location: formData.location,
+    holder_user_id: formData.holder_user_id ? Number(formData.holder_user_id) : undefined,
+    added_date: formData.added_date
+      ? new Date(formData.added_date).toISOString()
+      : undefined,
+    shelf_life_expires_at: formData.shelf_life_expires_at
+      ? new Date(formData.shelf_life_expires_at).toISOString()
+      : undefined,
+    picture_url: formData.picture_url || undefined,
+  });
+
   async function handleCreate() {
     if (!formData.name.trim() || formData.quantity <= 0 || !formData.location.trim()) {
       toast.error(`Please fill in required fields: ${getEntityDisplayName(selectedEntityType)} category, Quantity (>0), and Location`);
@@ -100,26 +145,19 @@ export default function InventoryPage() {
     }
 
     try {
-      const payload = {
-        name: formData.name,
-        inventory_type: selectedEntityType,
-        serial_number: formData.serial_number,
-        quantity: formData.quantity,
-        description: formData.description,
-        oem_name: formData.oem_name,
-        manufacturer_part_number: formData.manufacturer_part_number,
-        location: formData.location,
-      };
+      const payload = buildInventoryPayload();
 
-      await api.inventory.create(payload);
+      const created = await api.inventory.create(payload);
+      if (pendingAttachment && created.data?.id) {
+        await api.attachments.upload('inventory', created.data.id, pendingAttachment);
+      }
       toast.success('Inventory item created');
       
       // Refresh inventory
       const res = await api.inventory.list(0, 1000);
       setInventory(enrichInventoryItems(res.data));
       
-      setFormData({ name: '', inventory_type: 'component', serial_number: '', quantity: 0, description: '', oem_name: '', manufacturer_part_number: '', location: '' });
-      setSelectedEntityType('component');
+      resetForm();
       setIsCreateOpen(false);
     } catch (err) {
       console.error('Failed to create inventory item:', err);
@@ -135,18 +173,12 @@ export default function InventoryPage() {
     }
 
     try {
-      const payload = {
-        name: formData.name,
-        inventory_type: selectedEntityType,
-        serial_number: formData.serial_number,
-        quantity: formData.quantity,
-        description: formData.description,
-        oem_name: formData.oem_name,
-        manufacturer_part_number: formData.manufacturer_part_number,
-        location: formData.location,
-      };
+      const payload = buildInventoryPayload();
 
       await api.inventory.update(editingId, payload);
+      if (pendingAttachment) {
+        await api.attachments.upload('inventory', editingId, pendingAttachment);
+      }
       toast.success('Inventory item updated');
 
       const updatedItem: InventoryItem = {
@@ -166,8 +198,7 @@ export default function InventoryPage() {
         console.error('Failed to refresh inventory after update:', refreshErr);
       }
 
-      setFormData({ name: '', inventory_type: 'component', serial_number: '', quantity: 0, description: '', oem_name: '', manufacturer_part_number: '', location: '' });
-      setSelectedEntityType('component');
+      resetForm();
       setEditingId(null);
       setIsEditOpen(false);
     } catch (err) {
@@ -192,6 +223,7 @@ export default function InventoryPage() {
   function openEdit(item: InventoryItem) {
     setEditingId(item.id);
     setSelectedEntityType(item.inventory_type as EntityType);
+    setPendingAttachment(null);
     setFormData({
       name: item.name || '',
       inventory_type: item.inventory_type,
@@ -200,10 +232,76 @@ export default function InventoryPage() {
       description: item.description || '',
       oem_name: item.oem_name || '',
       manufacturer_part_number: item.manufacturer_part_number || '',
-      location: item.location,
+      location: item.location || '',
+      holder_user_id: item.holder_user_id ? String(item.holder_user_id) : '',
+      added_date: item.added_date ? item.added_date.slice(0, 10) : '',
+      shelf_life_expires_at: item.shelf_life_expires_at
+        ? item.shelf_life_expires_at.slice(0, 10)
+        : '',
+      picture_url: item.picture_url || '',
     });
     setIsEditOpen(true);
   }
+
+  const renderInventoryExtendedFields = () => (
+    <>
+      <div>
+        <Label>Inventory Holder</Label>
+        <Select
+          value={formData.holder_user_id || ''}
+          onValueChange={(value) => setFormData({ ...formData, holder_user_id: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select custodian" />
+          </SelectTrigger>
+          <SelectContent>
+            {users.map((user) => (
+              <SelectItem key={user.id} value={String(user.id)}>
+                {user.full_name || user.username}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label>Added Date</Label>
+        <Input
+          type="date"
+          value={formData.added_date}
+          onChange={(e) => setFormData({ ...formData, added_date: e.target.value })}
+        />
+      </div>
+
+      <div>
+        <Label>Shelf Life Expires</Label>
+        <Input
+          type="date"
+          value={formData.shelf_life_expires_at}
+          onChange={(e) =>
+            setFormData({ ...formData, shelf_life_expires_at: e.target.value })
+          }
+        />
+      </div>
+
+      <div>
+        <Label>Picture URL</Label>
+        <Input
+          value={formData.picture_url}
+          onChange={(e) => setFormData({ ...formData, picture_url: e.target.value })}
+          placeholder="Path or URL to item photo"
+        />
+      </div>
+
+      <div>
+        <Label>Attachment</Label>
+        <Input
+          type="file"
+          onChange={(e) => setPendingAttachment(e.target.files?.[0] ?? null)}
+        />
+      </div>
+    </>
+  );
 
   const getEntityDisplayName = (entityType: EntityType) => {
     return entityType.charAt(0).toUpperCase() + entityType.slice(1);
@@ -352,6 +450,8 @@ export default function InventoryPage() {
                   placeholder="Enter quantity"
                 />
               </div>
+
+              {renderInventoryExtendedFields()}
 
               <div>
                 <Label>Location *</Label>
@@ -512,6 +612,8 @@ export default function InventoryPage() {
                 }}
               />
             </div>
+
+            {renderInventoryExtendedFields()}
 
             <div>
               <Label>Location</Label>

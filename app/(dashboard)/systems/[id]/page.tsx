@@ -20,13 +20,15 @@ import { fetchStatusesByType } from '@/lib/api';
 import * as Models from '@/lib/models';
 import type { Inventory } from '@/lib/models';
 import { getChildInventoryType, nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
+import { inventoryToHierarchyCreatePayload } from '@/lib/hierarchy-install-fields';
 import { resolveStatusName } from '@/lib/entity-status';
 import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import { EntityInstallMetadataCard } from '@/components/entity-install-metadata-card';
 
 export default function SystemDetailPage() {
   const params = useParams();
   const systemId = params.id as string;
-  const { systems, projects, loading, subsystems, createSubsystem, deleteSubsystem, updateSubsystem, statuses: storeStatuses } = useDataStore();
+  const { systems, projects, loading, subsystems, createSubsystem, deleteSubsystem, updateSubsystem, updateSystem, statuses: storeStatuses } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -169,8 +171,10 @@ export default function SystemDetailPage() {
       description: item.description || '',
       system_id: system.id,
       status_id: defaultStatus.id,
-      part_number: item.manufacturer_part_number || '',
-      serial_number: nextSerialNumberFromInventory(item, systemSubsystems),
+      ...inventoryToHierarchyCreatePayload(
+        item,
+        nextSerialNumberFromInventory(item, systemSubsystems)
+      ),
     });
   }
   useEffect(() => {
@@ -302,6 +306,12 @@ export default function SystemDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EntityInstallMetadataCard
+        ownerType="system"
+        entity={system}
+        onUpdate={(data) => updateSystem(system.id, data)}
+      />
 
       {/* Subsystems Cards */}
       <EntityCards

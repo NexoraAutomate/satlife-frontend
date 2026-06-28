@@ -15,14 +15,17 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
+import type { Inventory } from '@/lib/models';
 import { getChildInventoryType, nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
+import { inventoryToHierarchyCreatePayload } from '@/lib/hierarchy-install-fields';
 import { EntityInventorySearch } from '@/components/entity-inventory-search';
 import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import { EntityInstallMetadataCard } from '@/components/entity-install-metadata-card';
 
 export default function ModuleDetailPage() {
   const params = useParams();
   const moduleId = params.id as string;
-  const { modules, loading, subsystems, units, createUnit, deleteUnit, updateUnit } = useDataStore();
+  const { modules, loading, subsystems, units, createUnit, deleteUnit, updateUnit, updateModule } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -155,8 +158,10 @@ export default function ModuleDetailPage() {
       description: item.description || '',
       module_id: module.id,
       status_id: defaultStatus.id,
-      part_number: item.manufacturer_part_number || '',
-      serial_number: nextSerialNumberFromInventory(item, moduleUnits),
+      ...inventoryToHierarchyCreatePayload(
+        item,
+        nextSerialNumberFromInventory(item, moduleUnits)
+      ),
     });
   }
 
@@ -283,6 +288,12 @@ export default function ModuleDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EntityInstallMetadataCard
+        ownerType="module"
+        entity={module}
+        onUpdate={(data) => updateModule(module.id, data)}
+      />
 
       {/* Units Cards */}
       <EntityCards

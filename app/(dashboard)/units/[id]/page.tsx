@@ -18,12 +18,14 @@ import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
 import type { Inventory } from '@/lib/models';
 import { getChildInventoryType, nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
+import { inventoryToHierarchyCreatePayload } from '@/lib/hierarchy-install-fields';
 import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import { EntityInstallMetadataCard } from '@/components/entity-install-metadata-card';
 
 export default function UnitDetailPage() {
   const params = useParams();
   const unitId = params.id as string;
-  const { units, loading, modules, components, createComponent, deleteComponent, updateComponent } = useDataStore();
+  const { units, loading, modules, components, createComponent, deleteComponent, updateComponent, updateUnit } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -164,8 +166,10 @@ export default function UnitDetailPage() {
       sku: '',
       unit_id: unit.id,
       status_id: defaultStatus.id,
-      part_number: item.manufacturer_part_number || '',
-      serial_number: nextSerialNumberFromInventory(item, unitComponents),
+      ...inventoryToHierarchyCreatePayload(
+        item,
+        nextSerialNumberFromInventory(item, unitComponents)
+      ),
     });
   }
   useEffect(() => {
@@ -292,6 +296,12 @@ export default function UnitDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EntityInstallMetadataCard
+        ownerType="unit"
+        entity={unit}
+        onUpdate={(data) => updateUnit(unit.id, data)}
+      />
 
       {/* Components Cards */}
       <EntityCards

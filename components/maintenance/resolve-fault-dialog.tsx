@@ -6,13 +6,30 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FaultyEntity, FaultyEntityStatus, ResolutionType } from '@/lib/models';
+import * as api from '@/lib/api';
+import { filterInventoryForReplacement, inventoryPartNumberLabel } from '@/lib/inventory-filter';
+import { FaultyEntity, Inventory, ResolutionType } from '@/lib/models';
+import {
+  isClassifiedFaultType,
+  resolutionRequiresClassifiedFaultType,
+} from '@/lib/maintenance-workflow';
+
+export interface ReplacementSelection {
+  partNumber: string;
+  inventoryItemId?: number;
+  inventoryQuantity?: number;
+  serialNumber?: string;
+}
 
 interface ResolveFaultDialogProps {
   entity: FaultyEntity | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onResolve: (resolutionType: ResolutionType, replacementPartNumber?: string, notes?: string) => Promise<void>;
+  onResolve: (
+    resolutionType: ResolutionType,
+    replacement?: ReplacementSelection,
+    notes?: string
+  ) => Promise<void>;
   isProcessing?: boolean;
 }
 
@@ -21,7 +38,6 @@ const resolutionOptions: Array<{ value: ResolutionType; label: string }> = [
   { value: ResolutionType.REPLACED, label: 'Replacement' },
   { value: ResolutionType.NO_FAULT_FOUND, label: 'No Fault Found' },
   { value: ResolutionType.DECOMMISSIONED, label: 'Decommissioned' },
-  { value: ResolutionType.CLEAR, label: 'Clear' },
 ];
 
 export function ResolveFaultDialog({
@@ -32,20 +48,75 @@ export function ResolveFaultDialog({
   isProcessing = false,
 }: ResolveFaultDialogProps) {
   const [resolutionType, setResolutionType] = useState<ResolutionType | ''>('');
-  const [replacementPartNumber, setReplacementPartNumber] = useState('');
+  const [selectedInventoryId, setSelectedInventoryId] = useState('');
   const [notes, setNotes] = useState('');
+  const [inventoryItems, setInventoryItems] = useState<Inventory[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setResolutionType('');
-      setReplacementPartNumber('');
+      setSelectedInventoryId('');
       setNotes('');
+      setInventoryItems([]);
     }
   }, [open]);
 
   const requiresReplacementPartNumber = resolutionType === ResolutionType.REPLACED;
-  const hasMissingFaultType = entity?.status === FaultyEntityStatus.CONFIRMED_FAULTY && !entity.fault_type;
-  const canSubmit = Boolean(resolutionType) && (!requiresReplacementPartNumber || replacementPartNumber.trim().length > 0);
+  const requiresClassifiedFaultType =
+    Boolean(resolutionType) && resolutionRequiresClassifiedFaultType(resolutionType as ResolutionType);
+  const hasMissingFaultType =
+    requiresClassifiedFaultType && !isClassifiedFaultType(entity?.fault_type);
+
+  useEffect(() => {
+    if (!open || !entity || !requiresReplacementPartNumber) {
+      setInventoryItems([]);
+      setSelectedInventoryId('');
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadInventory = async () => {
+      setInventoryLoading(true);
+      try {
+        const res = await api.inventory.list(0, 1000, entity.entity_type);
+        const items = filterInventoryForReplacement(
+          res.data ?? [],
+          entity.entity_type,
+          entity.entity_name ?? ''
+        );
+        if (!cancelled) {
+          setInventoryItems(items);
+          setSelectedInventoryId('');
+        }
+      } catch {
+        if (!cancelled) {
+          setInventoryItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setInventoryLoading(false);
+        }
+      }
+    };
+
+    void loadInventory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, entity, requiresReplacementPartNumber]);
+
+  const selectedInventory = useMemo(
+    () => inventoryItems.find((item) => String(item.id) === selectedInventoryId),
+    [inventoryItems, selectedInventoryId]
+  );
+
+  const canSubmit =
+    Boolean(resolutionType) &&
+    (!requiresReplacementPartNumber || Boolean(selectedInventory)) &&
+    !hasMissingFaultType;
 
   const details = useMemo(
     () => [
@@ -55,14 +126,27 @@ export function ResolveFaultDialog({
       { label: 'Serial Number', value: entity?.serial_number || 'N/A' },
       { label: 'Status', value: entity?.status || 'N/A' },
       { label: 'Fault Type', value: entity?.fault_type || 'N/A' },
-      { label: 'Identified At', value: entity?.identified_at ? new Date(entity.identified_at).toLocaleString() : 'Unknown' },
+      {
+        label: 'Identified At',
+        value: entity?.identified_at ? new Date(entity.identified_at).toLocaleString() : 'Unknown',
+      },
     ],
     [entity]
   );
 
   const handleSubmit = async () => {
     if (!entity || !resolutionType) return;
-    await onResolve(resolutionType, replacementPartNumber.trim() || undefined, notes.trim() || undefined);
+
+    const replacement = selectedInventory
+      ? {
+          partNumber: inventoryPartNumberLabel(selectedInventory),
+          inventoryItemId: selectedInventory.id,
+          inventoryQuantity: selectedInventory.quantity,
+          serialNumber: selectedInventory.serial_number,
+        }
+      : undefined;
+
+    await onResolve(resolutionType, replacement, notes.trim() || undefined);
   };
 
   return (
@@ -71,7 +155,8 @@ export function ResolveFaultDialog({
         <DialogHeader>
           <DialogTitle>Resolve Fault</DialogTitle>
           <DialogDescription>
-            Review the selected entity and choose how to resolve the fault. Replacement part number is required when resolution type is Replacement.
+            Review the selected entity and choose how to resolve the fault. Replacement part
+            number is required when resolution type is Replacement.
           </DialogDescription>
         </DialogHeader>
 
@@ -109,12 +194,40 @@ export function ResolveFaultDialog({
             {requiresReplacementPartNumber ? (
               <div className="grid gap-2">
                 <Label htmlFor="replacement-part-number">Replacement Part Number</Label>
-                <Input
-                  id="replacement-part-number"
-                  value={replacementPartNumber}
-                  onChange={(event) => setReplacementPartNumber(event.target.value)}
-                  placeholder="Enter replacement part number"
-                />
+                {inventoryLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading inventory...</p>
+                ) : inventoryItems.length === 0 ? (
+                  <p className="text-sm text-destructive">
+                    No replacement parts in inventory for this entity.
+                  </p>
+                ) : (
+                  <Select value={selectedInventoryId} onValueChange={setSelectedInventoryId}>
+                    <SelectTrigger id="replacement-part-number" className="w-full">
+                      <SelectValue placeholder="Select replacement part from inventory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventoryItems.map((item) => {
+                        const partLabel = inventoryPartNumberLabel(item);
+                        const description = [
+                          item.oem_name,
+                          `Qty: ${item.quantity}`,
+                          item.serial_number ? `SN: ${item.serial_number}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ');
+
+                        return (
+                          <SelectItem key={item.id} value={String(item.id)}>
+                            <span className="font-medium">{partLabel}</span>
+                            {description ? (
+                              <span className="ml-2 text-xs text-muted-foreground">{description}</span>
+                            ) : null}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             ) : null}
 
@@ -130,7 +243,7 @@ export function ResolveFaultDialog({
 
             {hasMissingFaultType ? (
               <p className="text-sm text-destructive">
-                Fault type is required on confirmed faulty entities before resolving.
+                Select a classified fault type (not Unclassified) before using this resolution.
               </p>
             ) : null}
           </div>

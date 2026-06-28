@@ -147,6 +147,18 @@ export function HierarchyEntityDetailPanel({
               <DetailRow label="Part Number" value={entity.part_number} />
               <DetailRow label="Serial Number" value={entity.serial_number} />
               <DetailRow label="Configuration Item" value={entity.configuration_item} />
+              {'installation_date' in entity && entity.installation_date ? (
+                <DetailRow
+                  label="Installation Date"
+                  value={new Date(entity.installation_date).toLocaleDateString()}
+                />
+              ) : null}
+              {'original_part_number' in entity && entity.original_part_number ? (
+                <DetailRow label="Original Part #" value={entity.original_part_number} />
+              ) : null}
+              {'original_serial_number' in entity && entity.original_serial_number ? (
+                <DetailRow label="Original Serial #" value={entity.original_serial_number} />
+              ) : null}
               {selection.type === 'system' && project ? (
                 <DetailRow label="Project" value={project.name} />
               ) : null}

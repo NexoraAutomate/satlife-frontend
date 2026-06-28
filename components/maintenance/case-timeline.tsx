@@ -1,18 +1,10 @@
 'use client';
 
-import { CheckCircle2, Hammer, Search, ShieldCheck } from 'lucide-react';
-import { StatusBadge } from '@/components/status-badge';
-import type { CaseTimelineEvent } from '@/lib/maintenance-timeline';
-
-const statusIcons = {
-  pass: CheckCircle2,
-  fail: Hammer,
-  pending: Search,
-  inconclusive: ShieldCheck,
-  resolved: CheckCircle2,
-  confirmed_faulty: Hammer,
-  open: Search,
-} as const;
+import { ActionOutcomeBadge } from '@/components/maintenance/badges';
+import {
+  type CaseTimelineEvent,
+  getTimelineEventIcon,
+} from '@/lib/maintenance-timeline';
 
 export function CaseTimeline({
   events,
@@ -39,8 +31,7 @@ export function CaseTimeline({
     <div className="relative space-y-0">
       <div className="absolute bottom-2 left-4 top-2 w-px bg-border" />
       {events.map((event) => {
-        const Icon =
-          statusIcons[event.outcome as keyof typeof statusIcons] || Search;
+        const Icon = getTimelineEventIcon(event.kind);
 
         return (
           <div key={event.id} className="relative flex gap-4 pb-6 last:pb-0">
@@ -50,19 +41,17 @@ export function CaseTimeline({
             <div className="flex-1 space-y-2 rounded-lg border border-border bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-medium">{event.title}</p>
-                {event.outcome ? <StatusBadge status={event.outcome} /> : null}
+                {event.outcome ? <ActionOutcomeBadge outcome={event.outcome} /> : null}
               </div>
               {event.entityLabel ? (
-                <p className="text-sm font-medium text-foreground">{event.entityLabel}</p>
+                <p className="text-sm font-medium text-foreground">Entity: {event.entityLabel}</p>
               ) : null}
-              {event.description ? (
-                <p className="text-sm text-muted-foreground">{event.description}</p>
+              {event.notes ? (
+                <p className="text-sm text-muted-foreground">{event.notes}</p>
               ) : null}
               <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                {event.userLabel ? <span>{event.userLabel}</span> : null}
                 <span>{new Date(event.performed_at).toLocaleString()}</span>
-                {event.performed_by ? (
-                  <span>By user {event.performed_by}</span>
-                ) : null}
               </div>
             </div>
           </div>

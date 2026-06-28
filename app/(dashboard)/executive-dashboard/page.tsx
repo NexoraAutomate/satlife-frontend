@@ -87,7 +87,7 @@ export default function ExecutiveDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Executive Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Aerospace analytics across projects, maintenance, configuration, and reliability
+            Production analytics across projects, maintenance, configuration, and reliability
           </p>
           {data?.generated_at ? (
             <p className="mt-1 text-xs text-muted-foreground">

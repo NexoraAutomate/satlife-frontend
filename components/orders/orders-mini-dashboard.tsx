@@ -175,7 +175,8 @@ export function OrdersMiniDashboard({
     [orders]
   );
 
-  const totalValue = orders.reduce((sum, o) => sum + (o.total_value ?? 0), 0);
+  const totalValue = orders.reduce((sum:number, o:Order) => sum + Number(o.total_value ?? 0), 0);
+  console.log(totalValue);
   const uniqueCustomers = new Set(orders.map((o) => o.customer_id).filter(Boolean)).size;
   const deliveredCount = orders.filter((o) => getOrderStatusName(o) === 'Delivered').length;
 

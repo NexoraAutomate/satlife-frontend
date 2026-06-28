@@ -1,32 +1,82 @@
 'use client';
 
-import { use, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, InspectionPanel, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { maintenanceService } from '@/services/maintenance';
+import { maintenanceService, formatMaintenanceApiError } from '@/services/maintenance';
 import { MaintenanceCaseSummary } from '@/components/maintenance/maintenance-case-summary';
 import { InvestigationTree } from '@/components/maintenance/investigation-tree';
 import { MaintenanceFaultyEntitiesTable } from '@/components/maintenance/maintenance-faulty-entities-table';
-import { ResolveFaultDialog } from '@/components/maintenance/resolve-fault-dialog';
-import { CaseTimeline } from '@/components/maintenance/case-timeline';
+import { ResolveFaultDialog, type ReplacementSelection } from '@/components/maintenance/resolve-fault-dialog';
+import { CaseTimelineTree } from '@/components/maintenance/case-timeline-tree';
+import { MaintenanceActionTable } from '@/components/maintenance/MaintenanceActionTable';
 import { BulkActionsToolbar } from '@/components/maintenance/bulk-actions-toolbar';
 import { EntityDetailSheet } from '@/components/maintenance/entity-detail-sheet';
-import { FaultyEntity, MaintenanceCase, FaultyEntityStatus, MaintenanceAction, FaultType, ResolutionType, ActionType, ActionOutcome, CaseStatus } from '@/lib/models';
+import { CaseDetailCards } from '@/components/maintenance/case-detail-cards';
+import { WorkflowTransitionDialog } from '@/components/maintenance/workflow-transition-dialog';
+import { useAuth } from '@/lib/auth-context';
+import {
+  FaultyEntity,
+  MaintenanceCase,
+  FaultyEntityStatus,
+  MaintenanceAction,
+  FaultType,
+  ResolutionType,
+  ActionType,
+  ActionOutcome,
+  CaseStatus,
+} from '@/lib/models';
 import { buildInvestigationTree } from '@/lib/maintenance-tree';
 import { buildCaseTimelineEvents } from '@/lib/maintenance-timeline';
+import { shouldSuggestResolveCase } from '@/lib/maintenance-case-status';
 import {
-  getDescendantFaultyEntityIds,
-  shouldAutoResolveCase,
-} from '@/lib/maintenance-case-status';
-import { InspectionPanel } from 'lucide-react';
+  buildEntityDisplayContexts,
+  countEntitiesByDisplayStatus,
+  buildResolveFaultUpdatePayload,
+  isClassifiedFaultType,
+  resolutionRequiresClassifiedFaultType,
+  FaultyEntityWorkflowStatus,
+  getWorkflowSuggestion,
+  mapCaseStatusToApi,
+  MaintenanceCaseWorkflowStatus,
+  resolveTriggerFromAction,
+  resolveTriggerFromResolution,
+} from '@/lib/maintenance-workflow';
 
-export default function MaintenanceCaseInvestigationPage({ params }: { params: Promise<{ id: string }> }) {
+function bulkActionTypeForStatus(status: FaultyEntityStatus): ActionType {
+  switch (status) {
+    case FaultyEntityStatus.CONFIRMED_FAULTY:
+      return ActionType.Inspection;
+    case FaultyEntityStatus.UNDER_INSPECTION:
+      return ActionType.Inspection;
+    case FaultyEntityStatus.NO_FAULT_FOUND:
+      return ActionType.Testing;
+    case FaultyEntityStatus.RESOLVED:
+      return ActionType.Repair;
+    default:
+      return ActionType.Inspection;
+  }
+}
+
+interface PendingWorkflowAction {
+  message: string;
+  suggestedCaseStatus?: MaintenanceCaseWorkflowStatus;
+  suggestedEntityStatus?: FaultyEntityWorkflowStatus;
+  execute: () => Promise<void>;
+}
+
+export default function MaintenanceCaseInvestigationPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
+  const { user } = useAuth();
   const resolvedParams = use(params);
   const caseId = Number(resolvedParams.id);
 
@@ -40,8 +90,11 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [resolveLoading, setResolveLoading] = useState(false);
+  const [caseStatusLoading, setCaseStatusLoading] = useState(false);
   const [resolveEntity, setResolveEntity] = useState<FaultyEntity | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false);
+  const [pendingWorkflow, setPendingWorkflow] = useState<PendingWorkflowAction | null>(null);
 
   const treeNodes = useMemo(() => buildInvestigationTree(entities), [entities]);
 
@@ -51,27 +104,100 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
   );
 
   const counts = useMemo(() => {
-    return entities.reduce(
-      (acc, entity) => {
-        if (entity.status === 'suspected' || entity.status === 'identified') acc.suspected += 1;
-        if (entity.status === 'confirmed_faulty') acc.confirmed += 1;
-        if (entity.status === 'healthy') acc.healthy += 1;
-        if (entity.status === 'resolved') acc.resolved += 1;
-        if (entity.status === 'under_inspection') acc.under_inspection += 1;
-        acc.total = acc.suspected + acc.confirmed + acc.healthy + acc.resolved + acc.under_inspection 
-        return acc;
-      },
-      { suspected: 0, confirmed: 0, healthy: 0, resolved: 0, under_inspection:0, total:0 }
+    const byStatus = countEntitiesByDisplayStatus(
+      buildEntityDisplayContexts(entities, maintenanceActions)
     );
-  }, [entities]);
+    return {
+      total: entities.length,
+      identified: byStatus[FaultyEntityWorkflowStatus.IDENTIFIED],
+      under_inspection: byStatus[FaultyEntityWorkflowStatus.UNDER_INSPECTION],
+      confirmed_faulty: byStatus[FaultyEntityWorkflowStatus.CONFIRMED_FAULTY],
+      under_repair: byStatus[FaultyEntityWorkflowStatus.UNDER_REPAIR],
+      repaired: byStatus[FaultyEntityWorkflowStatus.REPAIRED],
+      replaced: byStatus[FaultyEntityWorkflowStatus.REPLACED],
+      no_fault_found: byStatus[FaultyEntityWorkflowStatus.NO_FAULT_FOUND],
+    };
+  }, [entities, maintenanceActions]);
 
   useEffect(() => {
     if (!Number.isFinite(caseId) || caseId <= 0) return;
     loadInvestigationData();
   }, [caseId]);
 
-  const getDescendantEntityIds = (entityId: number, entityList: FaultyEntity[] = entities): number[] =>
-    getDescendantFaultyEntityIds(entityId, entityList);
+  const appendMaintenanceAction = (action: MaintenanceAction) => {
+    setMaintenanceActions((current) => {
+      if (current.some((item) => item.id === action.id)) {
+        return current;
+      }
+      return [action, ...current];
+    });
+  };
+
+  const applyCaseStatus = async (displayStatus: MaintenanceCaseWorkflowStatus) => {
+    const res = await maintenanceService.updateMaintenanceCase(caseId, {
+      status: mapCaseStatusToApi(displayStatus),
+    });
+    setMaintenanceCase(res.data);
+  };
+
+  const promptWorkflow = useCallback((pending: PendingWorkflowAction) => {
+    setPendingWorkflow(pending);
+    setWorkflowDialogOpen(true);
+  }, []);
+
+  const logEngineerAction = async (
+    faultyEntityId: number,
+    actionType: ActionType,
+    outcome: ActionOutcome,
+    notes?: string,
+    replacementEntityType?: FaultyEntity['entity_type'],
+    replacementEntityId?: number,
+    options?: { skipSuggestion?: boolean }
+  ) => {
+    const isFirstInspection =
+      !maintenanceActions.some((a) => a.action_type === ActionType.Inspection) &&
+      actionType === ActionType.Inspection;
+
+    const action = await maintenanceService.recordEngineerAction({
+      faultyEntityId,
+      actionType,
+      outcome,
+      notes,
+      performedBy: user?.id,
+      replacementEntityType,
+      replacementEntityId,
+    });
+    appendMaintenanceAction(action);
+
+    if (!options?.skipSuggestion) {
+      const trigger = resolveTriggerFromAction(actionType, outcome, isFirstInspection);
+      if (trigger) {
+        const suggestion = getWorkflowSuggestion({
+          maintenanceCase,
+          entities,
+          actions: [...maintenanceActions, action],
+          trigger,
+          entityId: faultyEntityId,
+          actionType,
+          actionOutcome: outcome,
+        });
+        if (suggestion) {
+          promptWorkflow({
+            message: suggestion.message,
+            suggestedCaseStatus: suggestion.suggestedCaseStatus,
+            suggestedEntityStatus: suggestion.suggestedEntityStatus,
+            execute: async () => {
+              if (suggestion.suggestedCaseStatus) {
+                await applyCaseStatus(suggestion.suggestedCaseStatus);
+              }
+            },
+          });
+        }
+      }
+    }
+
+    return action;
+  };
 
   const reloadCaseState = async () => {
     const [caseRes, entitiesRes] = await Promise.all([
@@ -89,27 +215,38 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
     setMaintenanceCase(caseRes.data);
     setEntities(updatedEntities);
     setMaintenanceActions(timelineRes.data || []);
-    return { caseData: caseRes.data, updatedEntities };
+    return { caseData: caseRes.data, updatedEntities, actions: timelineRes.data || [] };
   };
 
-  const tryAutoResolveCase = async (
+  const suggestResolveCaseIfReady = (
     updatedEntities: FaultyEntity[],
-    currentCase: MaintenanceCase | null = maintenanceCase
+    currentCase: MaintenanceCase | null = maintenanceCase,
+    actions: MaintenanceAction[] = maintenanceActions
   ) => {
-    if (!currentCase || !shouldAutoResolveCase(updatedEntities, currentCase.status)) {
+    if (!currentCase || !shouldSuggestResolveCase(updatedEntities, currentCase.status)) {
       return;
     }
 
-    try {
-      const res = await maintenanceService.updateMaintenanceCase(caseId, {
-        status: CaseStatus.Resolved,
-        resolution_notes: 'All faulty entities resolved or cleared.',
+    const suggestion = getWorkflowSuggestion({
+      maintenanceCase: currentCase,
+      entities: updatedEntities,
+      actions,
+      trigger: 'verification_approved',
+    });
+
+    if (suggestion) {
+      promptWorkflow({
+        message: suggestion.message,
+        suggestedCaseStatus: MaintenanceCaseWorkflowStatus.RESOLVED,
+        execute: async () => {
+          const res = await maintenanceService.updateMaintenanceCase(caseId, {
+            status: CaseStatus.Resolved,
+            resolution_notes: 'All faulty entities resolved or cleared.',
+          });
+          setMaintenanceCase(res.data);
+          toast.success('Maintenance case marked as resolved.');
+        },
       });
-      setMaintenanceCase(res.data);
-      toast.success('Maintenance case marked as resolved.');
-    } catch (error) {
-      console.error('Auto-resolve case failed', error);
-      toast.error('Entities resolved, but case status could not be updated.');
     }
   };
 
@@ -172,80 +309,165 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
   const updateSelectedStatus = async (status: FaultyEntityStatus, notes?: string) => {
     if (selectedIds.length === 0) return;
 
-    const idsToUpdate = status === FaultyEntityStatus.HEALTHY
-      ? Array.from(new Set([...selectedIds, ...selectedIds.flatMap((entityId) => getDescendantEntityIds(entityId))]))
-      : selectedIds;
+    const idsToUpdate = selectedIds;
 
-    // Validation: Fault Type is required before resolving
     if (status === FaultyEntityStatus.RESOLVED) {
       const missingFaultType = idsToUpdate.filter((id) => {
         const entity = entities.find((e) => e.id === id);
-        return !entity?.fault_type;
+        return !isClassifiedFaultType(entity?.fault_type);
       });
 
       if (missingFaultType.length > 0) {
         toast.error(
-          `Cannot resolve: ${missingFaultType.length} entity(ies) missing fault type. Please select a fault type before resolving.`
+          `Cannot resolve: ${missingFaultType.length} entity(ies) need a classified fault type before resolving.`
         );
         return;
       }
     }
 
-    if (status === FaultyEntityStatus.HEALTHY) {
-      const childCount = idsToUpdate.length - selectedIds.length;
-      const confirmed = window.confirm(
-        childCount > 0
-          ? `Mark ${selectedIds.length} selected parent entity(s) and ${childCount} child entity(s) as healthy?`
-          : 'Mark the selected entity(s) as healthy?'
-      );
+    const runBulkUpdate = async () => {
+      setActionLoading(true);
+      try {
+        await maintenanceService.bulkUpdateFaultyEntities(caseId, {
+          entity_ids: idsToUpdate,
+          status,
+          notes,
+        });
 
-      if (!confirmed) return;
-    }
+        await Promise.all(
+          idsToUpdate.map((entityId) =>
+            logEngineerAction(
+              entityId,
+              bulkActionTypeForStatus(status),
+              status === FaultyEntityStatus.UNDER_INSPECTION
+                ? ActionOutcome.Pending
+                : ActionOutcome.Pass,
+              notes || `Bulk status updated to ${status}`,
+              undefined,
+              undefined,
+              { skipSuggestion: true }
+            )
+          )
+        );
 
-    setActionLoading(true);
+        toast.success('Selected entities updated successfully.');
+        const { caseData, updatedEntities, actions } = await reloadCaseState();
+        suggestResolveCaseIfReady(updatedEntities, caseData, actions);
+        setSelectedIds([]);
+      } catch (error) {
+        console.error('Bulk update failed', error);
+        toast.error('Unable to update selected entities.');
+      } finally {
+        setActionLoading(false);
+      }
+    };
 
-    try {
-      await maintenanceService.bulkUpdateFaultyEntities(caseId, {
-        entity_ids: idsToUpdate,
-        status,
-        notes,
+    if (status === FaultyEntityStatus.CONFIRMED_FAULTY) {
+      const suggestion = getWorkflowSuggestion({
+        maintenanceCase,
+        entities,
+        actions: maintenanceActions,
+        trigger: 'confirm_faulty',
       });
-      toast.success('Selected entities updated successfully.');
-      const { caseData, updatedEntities } = await reloadCaseState();
-      await tryAutoResolveCase(updatedEntities, caseData);
-      setSelectedIds([]);
-    } catch (error) {
-      console.error('Bulk update failed', error);
-      toast.error('Unable to update selected entities.');
-    } finally {
-      setActionLoading(false);
+      if (suggestion) {
+        promptWorkflow({
+          message: suggestion.message,
+          suggestedCaseStatus: suggestion.suggestedCaseStatus,
+          suggestedEntityStatus: suggestion.suggestedEntityStatus,
+          execute: runBulkUpdate,
+        });
+        return;
+      }
     }
+
+    if (status === FaultyEntityStatus.UNDER_INSPECTION) {
+      const suggestion = getWorkflowSuggestion({
+        maintenanceCase,
+        entities,
+        actions: maintenanceActions,
+        trigger: 'first_inspection',
+        entityId: idsToUpdate[0],
+      });
+      if (suggestion) {
+        promptWorkflow({
+          message: suggestion.message,
+          suggestedCaseStatus: suggestion.suggestedCaseStatus,
+          suggestedEntityStatus: suggestion.suggestedEntityStatus,
+          execute: runBulkUpdate,
+        });
+        return;
+      }
+    }
+
+    await runBulkUpdate();
   };
 
   const handleConfirmFaulty = async (entity: FaultyEntity) => {
-    setActionLoading(true);
-    try {
-      await maintenanceService.confirmFaultyEntity(entity.id);
-      toast.success('Entity marked as confirmed faulty.');
-      await loadInvestigationData();
-    } catch (error) {
-      console.error('Confirm faulty failed', error);
-      toast.error('Unable to confirm faulty entity.');
-    } finally {
-      setActionLoading(false);
+    const runConfirm = async () => {
+      setActionLoading(true);
+      try {
+        await maintenanceService.confirmFaultyEntity(entity.id);
+        await logEngineerAction(
+          entity.id,
+          ActionType.Inspection,
+          ActionOutcome.Pass,
+          'Entity marked as confirmed faulty',
+          undefined,
+          undefined,
+          { skipSuggestion: true }
+        );
+        toast.success('Entity marked as confirmed faulty.');
+        await loadInvestigationData();
+      } catch (error) {
+        console.error('Confirm faulty failed', error);
+        toast.error('Unable to confirm faulty entity.');
+      } finally {
+        setActionLoading(false);
+      }
+    };
+
+    const suggestion = getWorkflowSuggestion({
+      maintenanceCase,
+      entities,
+      actions: maintenanceActions,
+      trigger: 'confirm_faulty',
+      entityId: entity.id,
+    });
+
+    if (suggestion) {
+      promptWorkflow({
+        message: suggestion.message,
+        suggestedCaseStatus: suggestion.suggestedCaseStatus,
+        suggestedEntityStatus: suggestion.suggestedEntityStatus,
+        execute: runConfirm,
+      });
+      return;
     }
+
+    await runConfirm();
   };
 
-  const handleMarkHealthy = async (entity: FaultyEntity) => {
+  const handleNoFaultFound = async (entity: FaultyEntity) => {
     setActionLoading(true);
     try {
-      await maintenanceService.update_faulty_Children(entity.id, {status: FaultyEntityStatus.HEALTHY});
-      toast.success('Entitie(s) marked as Healthy.');
-      const { caseData, updatedEntities } = await reloadCaseState();
-      await tryAutoResolveCase(updatedEntities, caseData);
+      await maintenanceService.updateFaultyEntity(
+        entity.id,
+        buildResolveFaultUpdatePayload(ResolutionType.NO_FAULT_FOUND, {
+          remarks: 'No fault found during inspection',
+        })
+      );
+      await logEngineerAction(
+        entity.id,
+        ActionType.Testing,
+        ActionOutcome.Pass,
+        'No fault found during inspection'
+      );
+      toast.success('Entity marked as no fault found.');
+      const { caseData, updatedEntities, actions } = await reloadCaseState();
+      suggestResolveCaseIfReady(updatedEntities, caseData, actions);
     } catch (error) {
-      console.error('Confirm Healthy failed', error);
-      toast.error('Unable to confirm entity as Healthy.');
+      console.error('No fault found update failed', error);
+      toast.error('Unable to update entity.');
     } finally {
       setActionLoading(false);
     }
@@ -255,6 +477,12 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
     try {
       const typedFaultType = faultType as FaultType;
       await maintenanceService.updateFaultyEntity(entityId, { fault_type: typedFaultType });
+      await logEngineerAction(
+        entityId,
+        ActionType.Inspection,
+        ActionOutcome.Pending,
+        `Fault type updated to ${typedFaultType}`
+      );
       setEntities((prev) =>
         prev.map((entity) =>
           entity.id === entityId ? { ...entity, fault_type: typedFaultType } : entity
@@ -277,102 +505,166 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
     setResolveDialogOpen(true);
   };
 
-  const handleResolveFault = async (
-    resolutionType: ResolutionType,
-    replacementPartNumber?: string,
-    notes?: string
-  ) => {
-    if (!resolveEntity) return;
-    if (resolveEntity.status === FaultyEntityStatus.CONFIRMED_FAULTY && !resolveEntity.fault_type) {
-      toast.error('Cannot resolve a confirmed faulty entity without a fault type.');
+  const handleCaseStatusChange = async (displayStatus: MaintenanceCaseWorkflowStatus) => {
+    const suggestion = getWorkflowSuggestion({
+      maintenanceCase,
+      entities,
+      actions: maintenanceActions,
+      trigger: displayStatus === MaintenanceCaseWorkflowStatus.CLOSED ? 'close_case' : 'verification_approved',
+    });
+
+    const applyStatus = async () => {
+      setCaseStatusLoading(true);
+      try {
+        await applyCaseStatus(displayStatus);
+        toast.success('Case status updated.');
+        await reloadCaseState();
+      } catch (error) {
+        console.error('Case status update failed', error);
+        toast.error('Unable to update case status.');
+      } finally {
+        setCaseStatusLoading(false);
+      }
+    };
+
+    if (suggestion && suggestion.suggestedCaseStatus === displayStatus) {
+      promptWorkflow({
+        message: suggestion.message,
+        suggestedCaseStatus: displayStatus,
+        execute: applyStatus,
+      });
       return;
     }
 
-    setResolveLoading(true);
+    await applyStatus();
+  };
 
-    try {
-      const descendantIds = getDescendantEntityIds(resolveEntity.id).filter(
-        (id) => id !== resolveEntity.id
-      );
-      const cascadeIds = descendantIds.filter((id) => {
-        const entity = entities.find((e) => e.id === id);
-        return entity && entity.status !== FaultyEntityStatus.RESOLVED;
-      });
+  const handleResolveFault = async (
+    resolutionType: ResolutionType,
+    replacement?: ReplacementSelection,
+    notes?: string
+  ) => {
+    if (!resolveEntity) return;
+    if (
+      resolutionRequiresClassifiedFaultType(resolutionType) &&
+      !isClassifiedFaultType(resolveEntity.fault_type)
+    ) {
+      toast.error('Select a classified fault type before resolving this entity.');
+      return;
+    }
 
-      const changes: Partial<FaultyEntity> = {
-        status: FaultyEntityStatus.RESOLVED,
-        resolution_type: resolutionType,
-      };
+    const runResolve = async () => {
+      setResolveLoading(true);
 
-      if (replacementPartNumber) {
-        changes.part_number = replacementPartNumber;
-      }
+      const oldPartNumber = resolveEntity.part_number;
+      const oldSerialNumber = resolveEntity.serial_number;
+      const replacementPartNumber = replacement?.partNumber;
 
-      await maintenanceService.updateFaultyEntity(resolveEntity.id, changes);
-
-      if (replacementPartNumber) {
-        await maintenanceService.updateEntityPartNumber(
-          resolveEntity.entity_type,
-          resolveEntity.entity_id,
-          replacementPartNumber
-        );
-      }
-
-      if (cascadeIds.length > 0) {
-        const missingFaultType = cascadeIds.filter((id) => {
-          const entity = entities.find((e) => e.id === id);
-          return entity?.status === FaultyEntityStatus.CONFIRMED_FAULTY && !entity.fault_type;
+      try {
+        const changes = buildResolveFaultUpdatePayload(resolutionType, {
+          old_part_number: oldPartNumber,
+          new_part_number: replacementPartNumber,
+          old_serial_number: oldSerialNumber,
+          new_serial_number: replacement?.serialNumber,
+          remarks: notes,
         });
 
-        if (missingFaultType.length > 0) {
-          toast.error(
-            `${missingFaultType.length} child entity(ies) still need a fault type before the case can fully close.`
+        await maintenanceService.updateFaultyEntity(resolveEntity.id, changes);
+
+        if (replacementPartNumber) {
+          await maintenanceService.updateEntityPartNumber(
+            resolveEntity.entity_type,
+            resolveEntity.entity_id,
+            replacementPartNumber
           );
-        } else {
-          await maintenanceService.bulkUpdateFaultyEntities(caseId, {
-            entity_ids: cascadeIds,
-            status: FaultyEntityStatus.RESOLVED,
-            notes:
-              notes ||
-              `Cascaded resolution from ${resolveEntity.entity_name || resolveEntity.part_number || 'parent entity'}`,
-          });
+
+          if (replacement?.inventoryItemId != null && replacement.inventoryQuantity != null) {
+            await maintenanceService.decrementInventoryItem(
+              replacement.inventoryItemId,
+              replacement.inventoryQuantity
+            );
+          }
         }
+
+        const actionType =
+          resolutionType === ResolutionType.REPAIRED
+            ? ActionType.Repair
+            : resolutionType === ResolutionType.REPLACED
+            ? ActionType.Replacement
+            : resolutionType === ResolutionType.NO_FAULT_FOUND
+            ? ActionType.Testing
+            : resolutionType === ResolutionType.DECOMMISSIONED
+            ? ActionType.Disassembly
+            : ActionType.Inspection;
+
+        const replacementNote =
+          resolutionType === ResolutionType.REPLACED && replacementPartNumber
+            ? `Replaced ${oldPartNumber || 'unknown'} with ${replacementPartNumber}`
+            : undefined;
+
+        await logEngineerAction(
+          resolveEntity.id,
+          actionType,
+          ActionOutcome.Pass,
+          notes || replacementNote || `Resolved via ${resolutionType}`,
+          resolveEntity.entity_type,
+          resolveEntity.entity_id,
+          { skipSuggestion: true }
+        );
+
+        toast.success('Fault resolved successfully.');
+        setResolveDialogOpen(false);
+        setResolveEntity(null);
+
+        const { caseData, updatedEntities, actions } = await reloadCaseState();
+
+        const testingSuggestion = getWorkflowSuggestion({
+          maintenanceCase: caseData,
+          entities: updatedEntities,
+          actions,
+          trigger: 'testing_pass',
+        });
+        if (testingSuggestion) {
+          promptWorkflow({
+            message: testingSuggestion.message,
+            suggestedCaseStatus: testingSuggestion.suggestedCaseStatus,
+            execute: async () => {
+              if (testingSuggestion.suggestedCaseStatus) {
+                await applyCaseStatus(testingSuggestion.suggestedCaseStatus);
+              }
+            },
+          });
+        } else {
+          suggestResolveCaseIfReady(updatedEntities, caseData, actions);
+        }
+      } catch (error) {
+        console.error('Resolve fault failed', error);
+        toast.error(formatMaintenanceApiError(error, 'Unable to resolve faulty entity.'));
+      } finally {
+        setResolveLoading(false);
       }
+    };
 
-      const actionType =
-        resolutionType === ResolutionType.REPAIRED
-          ? ActionType.Repair
-          : resolutionType === ResolutionType.REPLACED
-          ? ActionType.Replacement
-          : resolutionType === ResolutionType.NO_FAULT_FOUND
-          ? ActionType.Testing
-          : resolutionType === ResolutionType.DECOMMISSIONED
-          ? ActionType.Disassembly
-          : ActionType.Inspection;
+    const trigger = resolveTriggerFromResolution(resolutionType);
+    const suggestion = getWorkflowSuggestion({
+      maintenanceCase,
+      entities,
+      actions: maintenanceActions,
+      trigger,
+      entityId: resolveEntity.id,
+      resolutionType,
+    });
 
-      await maintenanceService.createMaintenanceAction({
-        faulty_entity_id: resolveEntity.id,
-        action_type: actionType,
-        outcome: ActionOutcome.Pass,
-        replacement_entity_type:resolveEntity.entity_type,
-        replacement_entity_id:resolveEntity.entity_id,
-        notes: notes ||
-          `Resolved via ${resolutionType}${replacementPartNumber ? `, replacement part ${replacementPartNumber}` : ''}`,
-        performed_at: new Date().toISOString(),
+    if (suggestion) {
+      promptWorkflow({
+        message: suggestion.message,
+        suggestedEntityStatus: suggestion.suggestedEntityStatus,
+        execute: runResolve,
       });
-
-      toast.success('Fault resolved successfully.');
-      setResolveDialogOpen(false);
-      setResolveEntity(null);
-
-      const { caseData, updatedEntities } = await reloadCaseState();
-      await tryAutoResolveCase(updatedEntities, caseData);
-    } catch (error) {
-      console.error('Resolve fault failed', error);
-      toast.error('Unable to resolve faulty entity.');
-    } finally {
-      setResolveLoading(false);
+      return;
     }
+
+    await runResolve();
   };
 
   if (!Number.isFinite(caseId) || caseId <= 0) {
@@ -384,19 +676,25 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
   }
 
   return (
-    <div className="space-y-8 ">
+    <div className="space-y-8">
       <div className="flex flex-col gap sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <Link href="/maintenance" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+          <Link
+            href="/maintenance"
+            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+          >
             <ArrowLeft className="h-4 w-4" /> Back to maintenance cases
           </Link>
-          <div className='pt-4 flex flex-col w-4xl '>
-            <div className='flex px-1  items-center w-2xl h-10'>
-              <InspectionPanel  className=' w-1/12 h-full'/>
-              <h1 className="text-2xl font-bold tracking-tight  w-11/12 h-full">Maintenance Case Investigation</h1>
+          <div className="pt-4 flex flex-col w-4xl">
+            <div className="flex px-1 items-center w-2xl h-10">
+              <InspectionPanel className="w-1/12 h-full" />
+              <h1 className="text-2xl font-bold tracking-tight w-11/12 h-full">
+                Maintenance Case Investigation
+              </h1>
             </div>
-            <p className="pl-16 text-sm text-muted-foreground ">
-              Inspect suspected or confirmed faulty entities and manage the investigation lifecycle for this case.
+            <p className="pl-16 text-sm text-muted-foreground">
+              Inspect potentially affected or confirmed faulty entities and manage the
+              investigation lifecycle for this case.
             </p>
           </div>
         </div>
@@ -410,13 +708,26 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
         </div>
       </div>
 
-      {/* <Separator /> */}
-
       {maintenanceCase ? (
-        
-        <MaintenanceCaseSummary maintenanceCase={maintenanceCase} counts={counts} />
+        <>
+          <MaintenanceCaseSummary
+            maintenanceCase={maintenanceCase}
+            entities={entities}
+            actions={maintenanceActions}
+            counts={counts}
+          />
+          <CaseDetailCards
+            maintenanceCase={maintenanceCase}
+            entities={entities}
+            actions={maintenanceActions}
+            onCaseStatusChange={handleCaseStatusChange}
+            isUpdatingCase={caseStatusLoading}
+          />
+        </>
       ) : (
-        <div className="rounded-lg border border-dashed border-border bg-muted p-6 text-sm text-muted-foreground">Loading maintenance case details...</div>
+        <div className="rounded-lg border border-dashed border-border bg-muted p-6 text-sm text-muted-foreground">
+          Loading maintenance case details...
+        </div>
       )}
 
       <Separator />
@@ -426,73 +737,119 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
           <TabsList>
             <TabsTrigger value="tree">Investigation Tree</TabsTrigger>
             <TabsTrigger value="entities">Faulty Entities</TabsTrigger>
+            <TabsTrigger value="actions">Maintenance Actions</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
-            <TabsContent value="tree">
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Use the hierarchy tree to inspect entity relationships and confirm whether a specific part is faulty.
-                </p>
-                <InvestigationTree
-                  nodes={treeNodes}
-                  caseStatus={maintenanceCase?.status}
-                  onSelect={(node) => {
-                    const selected = entities.find((entity) => entity.id === node.id);
-                    if (selected) {
-                      handleViewEntity(selected);
-                    }
-                  }}
-                  onMarkHealthy={(node) => {
-                    const selected = entities.find((entity) => entity.id === node.id);
-                    if (selected) {
-                      handleMarkHealthy(selected);
-                    }
-                  }}
-                  onFaultTypeChange={handleFaultTypeChange}
-                />
-              </div>
-            </TabsContent>
-            <TabsContent value="entities">
-              <div className="space-y-4">
-                <MaintenanceFaultyEntitiesTable
-                  entities={entities}
-                  selectedIds={selectedIds}
-                  onToggleSelect={handleToggleSelect}
-                  onToggleSelectAll={handleToggleSelectAll}
-                  onView={handleViewEntity}
-                  onConfirmFaulty={handleConfirmFaulty}
-                  onMarkHealthy={handleMarkHealthy}
-                  onResolve={handleOpenResolveDialog}
-                  isLoading={isLoading}
-                />
-                <BulkActionsToolbar
-                  selectedCount={selectedIds.length}
-                  isLoading={actionLoading}
-                  onConfirmFaulty={() => updateSelectedStatus(FaultyEntityStatus.CONFIRMED_FAULTY, 'Bulk confirmed during investigation')}
-                  onMarkHealthy={() => updateSelectedStatus(FaultyEntityStatus.HEALTHY, 'Bulk marked healthy during investigation')}
-                  onSetUnderInspection={() => updateSelectedStatus(FaultyEntityStatus.UNDER_INSPECTION, 'Bulk set under inspection')}
-                  onResolve={() => updateSelectedStatus(FaultyEntityStatus.RESOLVED, 'Bulk resolved during investigation')}
-                  onRemoveFalsePositive={() => updateSelectedStatus(FaultyEntityStatus.FALSEPOSITIVE, 'Bulk marked false positive')}
-                />
-              </div>
-            </TabsContent>
-            <TabsContent value="timeline">
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Review investigation actions and outcomes recorded against this case.</p>
-                <CaseTimeline events={timelineEventsView} isLoading={timelineLoading} />
-              </div>
-            </TabsContent>
+          <TabsContent value="tree">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Use the hierarchy tree to inspect entity relationships and confirm whether a
+                specific part is faulty.
+              </p>
+              <InvestigationTree
+                nodes={treeNodes}
+                entities={entities}
+                actions={maintenanceActions}
+                caseStatus={maintenanceCase?.status}
+                onSelect={(node) => {
+                  const selected = entities.find((entity) => entity.id === node.id);
+                  if (selected) {
+                    handleViewEntity(selected);
+                  }
+                }}
+                onNoFaultFound={(node) => {
+                  const selected = entities.find((entity) => entity.id === node.id);
+                  if (selected) {
+                    handleNoFaultFound(selected);
+                  }
+                }}
+                onFaultTypeChange={handleFaultTypeChange}
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="entities">
+            <div className="space-y-4">
+              <MaintenanceFaultyEntitiesTable
+                entities={entities}
+                actions={maintenanceActions}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+                onView={handleViewEntity}
+                onConfirmFaulty={handleConfirmFaulty}
+                onNoFaultFound={handleNoFaultFound}
+                onResolve={handleOpenResolveDialog}
+                isLoading={isLoading}
+              />
+              <BulkActionsToolbar
+                selectedCount={selectedIds.length}
+                isLoading={actionLoading}
+                onStartInspection={() =>
+                  updateSelectedStatus(
+                    FaultyEntityStatus.UNDER_INSPECTION,
+                    'Bulk set under inspection'
+                  )
+                }
+                onConfirmFaulty={() =>
+                  updateSelectedStatus(
+                    FaultyEntityStatus.CONFIRMED_FAULTY,
+                    'Bulk confirmed during investigation'
+                  )
+                }
+                onNoFaultFound={() =>
+                  updateSelectedStatus(
+                    FaultyEntityStatus.NO_FAULT_FOUND,
+                    'Bulk marked no fault found'
+                  )
+                }
+                onResolve={() =>
+                  updateSelectedStatus(
+                    FaultyEntityStatus.RESOLVED,
+                    'Bulk resolved during investigation'
+                  )
+                }
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="actions">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Structured audit log of all engineer actions recorded for this case.
+              </p>
+              <MaintenanceActionTable
+                actions={maintenanceActions}
+                entities={entities}
+                isLoading={timelineLoading}
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="timeline">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Review investigation actions grouped by parent and child entities.
+              </p>
+              <CaseTimelineTree
+                entities={entities}
+                events={timelineEventsView}
+                isLoading={timelineLoading}
+              />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
       <EntityDetailSheet
         entity={activeEntity}
+        allEntities={entities}
+        actions={maintenanceActions}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         onConfirmFaulty={() => activeEntity && handleConfirmFaulty(activeEntity)}
-        onMarkHealthy={() => activeEntity && handleMarkHealthy(activeEntity)}
+        onNoFaultFound={() => activeEntity && handleNoFaultFound(activeEntity)}
         onResolve={() => activeEntity && handleOpenResolveDialog(activeEntity)}
-        onFaultTypeChange={(faultType) => activeEntity && handleFaultTypeChange(activeEntity.id, faultType)}
+        onFaultTypeChange={(faultType) =>
+          activeEntity && handleFaultTypeChange(activeEntity.id, faultType)
+        }
       />
 
       <ResolveFaultDialog
@@ -501,6 +858,22 @@ export default function MaintenanceCaseInvestigationPage({ params }: { params: P
         onOpenChange={setResolveDialogOpen}
         onResolve={handleResolveFault}
         isProcessing={resolveLoading}
+      />
+
+      <WorkflowTransitionDialog
+        open={workflowDialogOpen}
+        onOpenChange={setWorkflowDialogOpen}
+        message={pendingWorkflow?.message ?? ''}
+        suggestedCaseStatus={pendingWorkflow?.suggestedCaseStatus}
+        suggestedEntityStatus={pendingWorkflow?.suggestedEntityStatus}
+        isLoading={actionLoading || resolveLoading || caseStatusLoading}
+        onConfirm={async () => {
+          if (pendingWorkflow) {
+            await pendingWorkflow.execute();
+            setPendingWorkflow(null);
+          }
+        }}
+        onCancel={() => setPendingWorkflow(null)}
       />
     </div>
   );

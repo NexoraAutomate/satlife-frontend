@@ -13,18 +13,25 @@ import { Plus, Edit, Trash2, Search, Clock, AlertTriangle, Zap, Pause, CheckCirc
 import { StatusBadge } from '@/components/status-badge';
 import { EntityCards } from '@/components/entity-cards';
 import { EntityForm } from '@/components/entity-form';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import * as api from '@/lib/api';
 import * as Models from '@/lib/models';
 import { EntityInventorySearch } from '@/components/entity-inventory-search';
 import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import type { Inventory } from '@/lib/models';
 import { nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
+import { inventoryToHierarchyCreatePayload } from '@/lib/hierarchy-install-fields';
+import {
+  hierarchyInstallFormFields,
+  hierarchyInstallInitialValues,
+  parseHierarchyInstallPayload,
+} from '@/lib/hierarchy-install-fields';
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
-  const { projects, systems, orders, loading, createSystem, deleteSystem, updateSystem } = useDataStore();
+  const { projects, systems, orders, loading, createSystem, deleteSystem, updateSystem, users } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -40,44 +47,50 @@ export default function ProjectDetailPage() {
 
 
 
-  const systemFormFields = [
-    {
-      name: 'name',
-      label: 'System Name',
-      type: 'select' as const,
-      required: true,
-      options: systemHierarchyNames.map((hierarchy) => ({ label: hierarchy.name, value: hierarchy.name })),
-    },
-    {
-      name: 'description',
-      label: 'Description',
-      type: 'textarea' as const,
-      required: false,
-      placeholder: 'Enter system description',
-    },
-    {  
-      name: 'partnumber',
-      label: 'Part #',
-      type: 'text' as const,
-      required: false,
-      placeholder: 'Enter Part Number of System',
-    },
-    {
-      name: 'project_id',
-      label: 'Project',
-      type: 'select' as const,
-      required: true,
-      options: projects.map(p => ({ label: p.name, value: p.id })),
-    },
-    {
-      name: 'id',
-      label: 'Status',
-      type: 'select' as const,
-      required: true,
-      options: statuses.map(s => ({ label: s.status_name, value: s.id })),
-    },
-
-  ];
+  const systemFormFields = useMemo(
+    () => [
+      {
+        name: 'name',
+        label: 'System Name',
+        type: 'select' as const,
+        required: true,
+        options: systemHierarchyNames.map((hierarchy) => ({
+          label: hierarchy.name,
+          value: hierarchy.name,
+        })),
+      },
+      {
+        name: 'description',
+        label: 'Description',
+        type: 'textarea' as const,
+        required: false,
+        placeholder: 'Enter system description',
+      },
+      {
+        name: 'partnumber',
+        label: 'Part #',
+        type: 'text' as const,
+        required: false,
+        placeholder: 'Enter Part Number of System',
+      },
+      {
+        name: 'project_id',
+        label: 'Project',
+        type: 'select' as const,
+        required: true,
+        options: projects.map((p) => ({ label: p.name, value: p.id })),
+      },
+      {
+        name: 'id',
+        label: 'Status',
+        type: 'select' as const,
+        required: true,
+        options: statuses.map((s) => ({ label: s.status_name, value: s.id })),
+      },
+      ...hierarchyInstallFormFields({ users }),
+    ],
+    [systemHierarchyNames, projects, statuses, users]
+  );
 
   async function handleAddSystem(formData: Record<string, any>) {
     if (!project) {
@@ -96,12 +109,12 @@ export default function ProjectDetailPage() {
         description: formData.description || '',
         project_id: formData.project_id ? Number(formData.project_id) : project.id,
         status_id: Number(formData.id),
-        part_number:formData.partnumber,
+        part_number: formData.partnumber,
         serial_number: formData.name && formData.partnumber
                         ? `${formData.name}-${formData.partnumber}`
                         : formData.name || formData.partnumber || "",
         configuration_item: formData.partnumber || formData.name,
-
+        ...parseHierarchyInstallPayload(formData),
       });
       setIsAddOpen(false);
       toast.success('System added successfully');
@@ -145,6 +158,7 @@ export default function ProjectDetailPage() {
         project_id: formData.project_id ? Number(formData.project_id) : project.id,
         status_id: Number(formData.id),
         part_number: formData.partnumber,
+        ...parseHierarchyInstallPayload(formData),
       });
       setIsEditOpen(false);
       setEditingId(null);
@@ -173,8 +187,10 @@ export default function ProjectDetailPage() {
       description: item.description || '',
       project_id: project.id,
       status_id: defaultStatus.id,
-      part_number: item.manufacturer_part_number || '',
-      serial_number: nextSerialNumberFromInventory(item, projectSystems),
+      ...inventoryToHierarchyCreatePayload(
+        item,
+        nextSerialNumberFromInventory(item, projectSystems)
+      ),
     });
   }
   
@@ -345,6 +361,7 @@ export default function ProjectDetailPage() {
                 partnumber: editingSystem.part_number || '',
                 project_id: editingSystem.project_id,
                 id: editingSystem.status_id,
+                ...hierarchyInstallInitialValues(editingSystem),
               }}
               onSubmit={handleEditSystem}
               isLoading={isSubmitting}

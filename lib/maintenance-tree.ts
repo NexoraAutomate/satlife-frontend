@@ -1,5 +1,6 @@
-import type { FaultyEntity } from '@/lib/models';
+import type { FaultyEntity, MaintenanceAction } from '@/lib/models';
 import { FaultyEntityStatus } from '@/lib/models';
+import { isTerminalDisplayStatus, mapFaultyEntityStatusFromApi } from '@/lib/maintenance-workflow';
 
 export interface InvestigationTreeNode {
   id: number;
@@ -17,15 +18,27 @@ export interface TreeVisualContext {
   spinIds: Set<number>;
 }
 
-const TERMINAL_STATUSES = new Set<string>([
-  FaultyEntityStatus.HEALTHY,
+const TERMINAL_API_STATUSES = new Set<string>([
   FaultyEntityStatus.RESOLVED,
   FaultyEntityStatus.NO_FAULT_FOUND,
   FaultyEntityStatus.FALSEPOSITIVE,
+  FaultyEntityStatus.HEALTHY,
 ]);
+
+function isTerminalNode(
+  node: InvestigationTreeNode,
+  entities: FaultyEntity[],
+  actions: MaintenanceAction[]
+): boolean {
+  const entity = entities.find((e) => e.id === node.id);
+  if (!entity) return TERMINAL_API_STATUSES.has(node.status);
+  const entityActions = actions.filter((a) => a.faulty_entity_id === entity.id);
+  return isTerminalDisplayStatus(mapFaultyEntityStatusFromApi(entity, entityActions));
+}
 
 const FAULT_SOURCE_STATUSES = new Set<string>([
   FaultyEntityStatus.IDENTIFIED,
+  FaultyEntityStatus.SUSPECTED,
   FaultyEntityStatus.CONFIRMED_FAULTY,
   FaultyEntityStatus.UNDER_INSPECTION,
 ]);
@@ -130,7 +143,9 @@ function collectAncestorIds(nodeId: number, parentMap: Map<number, number>): num
 
 export function buildTreeVisualContext(
   nodes: InvestigationTreeNode[],
-  caseStatus?: string
+  caseStatus?: string,
+  entities: FaultyEntity[] = [],
+  actions: MaintenanceAction[] = []
 ): TreeVisualContext {
   const redPingIds = new Set<number>();
   const amberPingIds = new Set<number>();
@@ -145,7 +160,7 @@ export function buildTreeVisualContext(
   walkTree(nodes, null, nodeMap, parentMap);
 
   for (const [nodeId, node] of nodeMap) {
-    if (TERMINAL_STATUSES.has(node.status)) continue;
+    if (isTerminalNode(node, entities, actions)) continue;
     if (!FAULT_SOURCE_STATUSES.has(node.status)) continue;
 
     redPingIds.add(nodeId);
@@ -154,7 +169,7 @@ export function buildTreeVisualContext(
     const descendants = collectDescendantIds(node);
     for (const descId of descendants) {
       const desc = nodeMap.get(descId);
-      if (!desc || TERMINAL_STATUSES.has(desc.status)) continue;
+      if (!desc || isTerminalNode(desc, entities, actions)) continue;
       amberPingIds.add(descId);
     }
   }

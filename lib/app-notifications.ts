@@ -1,4 +1,5 @@
 import { CaseStatus, FaultyEntityStatus } from '@/lib/models';
+import { getCaseStatusMeta, mapCaseStatusFromApi } from '@/lib/maintenance-workflow';
 import type { Customer, FaultyEntity, MaintenanceCase, Project } from '@/lib/models';
 
 export type AppNotificationType =
@@ -52,7 +53,7 @@ export function buildAppNotifications(input: {
         id: `case-open-${mc.id}`,
         type: 'open_maintenance_case',
         title: 'Open maintenance case',
-        message: `${mc.case_number} — ${mc.status.replace(/_/g, ' ')}`,
+        message: `${mc.case_number} — ${getCaseStatusMeta(mapCaseStatusFromApi(mc.status)).label}`,
         href: `/maintenance/cases/${mc.id}`,
         timestamp: mc.reported_at ?? mc.created_at ?? new Date().toISOString(),
         priority: mc.status === CaseStatus.Open ? 'high' : 'medium',
@@ -116,12 +117,15 @@ export function buildAppNotifications(input: {
         priority: 'medium',
         ...base,
       });
-    } else if (fe.status === FaultyEntityStatus.SUSPECTED) {
+    } else if (
+      fe.status === FaultyEntityStatus.SUSPECTED ||
+      fe.status === ('suspected' as FaultyEntityStatus)
+    ) {
       notifications.push({
-        id: `fault-suspected-${fe.id}-${fe.status}`,
+        id: `fault-potentially-affected-${fe.id}-${fe.status}`,
         type: 'suspected_fault',
-        title: 'Suspected fault',
-        message: `${label} marked as suspected`,
+        title: 'Potentially affected',
+        message: `${label} may be affected by an upstream fault`,
         priority: 'medium',
         ...base,
       });

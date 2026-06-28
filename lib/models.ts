@@ -119,8 +119,28 @@ export interface Project {
   systems?: System[]
 }
 
+// Shared install metadata for hierarchy hardware entities
+export interface HierarchyInstallFields {
+  installation_date?: string
+  installed_by_id?: number
+  picture_url?: string
+  original_part_number?: string
+  original_serial_number?: string
+}
+
+export interface EntityAttachment {
+  id: number
+  owner_type: string
+  owner_id: number
+  file_name: string
+  file_path: string
+  mime_type?: string
+  uploaded_by_id?: number
+  uploaded_at: string
+}
+
 // System (top level in hierarchy)
-export interface System {
+export interface System extends HierarchyInstallFields {
   id: number
   name: string
   description: string
@@ -139,7 +159,7 @@ export interface System {
 }
 
 // Subsystem
-export interface Subsystem {
+export interface Subsystem extends HierarchyInstallFields {
   id: number
   name: string
   description: string
@@ -154,7 +174,7 @@ export interface Subsystem {
 }
 
 // Module
-export interface Module {
+export interface Module extends HierarchyInstallFields {
   id: number
   name: string
   description: string
@@ -169,7 +189,7 @@ export interface Module {
 }
 
 // Unit
-export interface Unit {
+export interface Unit extends HierarchyInstallFields {
   id: number
   name: string
   description: string
@@ -184,7 +204,7 @@ export interface Unit {
 }
 
 // Component (leaf node in hierarchy)
-export interface Component {
+export interface Component extends HierarchyInstallFields {
   id: number
   name: string
   description: string
@@ -212,10 +232,21 @@ export interface Hierarchy {
 // Inventory
 export interface Inventory {
   id: number
-  component_id: number
+  name: string
+  inventory_type: string
+  serial_number?: string
+  manufacturer_part_number?: string
   quantity: number
-  location: string
-  created_at: string
+  location?: string
+  description?: string
+  oem_name?: string
+  entity_id?: number
+  holder_user_id?: number
+  added_date?: string
+  shelf_life_expires_at?: string
+  picture_url?: string
+  created_at?: string
+  updated_at?: string
   component?: Component
 }
 
@@ -269,11 +300,6 @@ export enum CaseStatus {
 }
 
 export enum FaultType {
-  // Electrical = 'electrical',
-  // Mechanical = 'mechanical',
-  // Software = 'software',
-  // Environmental = 'environmental',
-  // Other = 'other',
   HARDWARE             = "hardware",
   SOFTWARE             = "software",
   PHYSICAL_DAMAGE      = "physical_damage",
@@ -290,12 +316,16 @@ export enum FaultType {
 
 export enum FaultyEntityStatus {
   IDENTIFIED       = "identified",
+  /** @deprecated API-only; display as IDENTIFIED + Potentially Affected badge */
   SUSPECTED        = "suspected",
   UNDER_INSPECTION = "under_inspection",
   CONFIRMED_FAULTY = "confirmed_faulty",
+  /** @deprecated API-only; display as NO_FAULT_FOUND */
   HEALTHY          = "healthy",
+  /** @deprecated API-only; display as REPAIRED or REPLACED via resolution_type */
   RESOLVED         = "resolved",
   NO_FAULT_FOUND   = "no_fault_found",
+  /** @deprecated API-only; display as NO_FAULT_FOUND */
   FALSEPOSITIVE    = 'false_positive'
 }
 
@@ -304,6 +334,7 @@ export enum ResolutionType {
   REPLACED = 'replaced',
   NO_FAULT_FOUND   = "no_fault_found",
   DECOMMISSIONED = "decommissioned",
+  /** @deprecated Hidden from UI selectors */
   CLEAR = 'clear',
 }
 
@@ -315,6 +346,10 @@ export enum ActionType {
   Testing = 'testing',
   Cleaning = 'cleaning',
   Recalibration = 'recalibration',
+  Assembly = 'assembly',
+  SoftwareUpdate = 'software_update',
+  ConfigurationChange = 'configuration_change',
+  Documentation = 'documentation',
 }
 
 export enum ActionOutcome {
@@ -322,6 +357,7 @@ export enum ActionOutcome {
   Fail = 'fail',
   Pending = 'pending',
   Inconclusive = 'inconclusive',
+  NotApplicable = 'not_applicable',
 }
 
 export enum DeliveryType {
@@ -452,6 +488,11 @@ export interface UpdateFaultyEntityPayload {
   resolution_type?: ResolutionType;
   fault_type?: FaultType;
   part_number?: string;
+  old_part_number?: string;
+  new_part_number?: string;
+  old_serial_number?: string;
+  new_serial_number?: string;
+  remarks?: string;
 }
 
 export interface CreateMaintenanceActionPayload {
@@ -540,6 +581,24 @@ export interface ConfirmFaultPayload {
   parent_faulty_entity_id: number;
 }
 
+export interface AdminHierarchyReplacePayload {
+  project_id: number;
+  entity_type: EntityType | string;
+  entity_id: number;
+  new_part_number: string;
+  new_serial_number?: string;
+  notes?: string;
+  inventory_item_id?: number;
+}
+
+export interface AdminHierarchyReplaceResponse {
+  case_id: number;
+  faulty_entity_id: number;
+  configuration_history_id?: number | null;
+  old_part_number?: string | null;
+  new_part_number: string;
+}
+
 // API Response types
 export interface MaintenanceCaseResponse {
   data: MaintenanceCase | MaintenanceCase[];
@@ -567,6 +626,7 @@ export interface ConfigurationHistory {
 
   entity_id: number;
   maintenance_case_id?: number | null;
+  faulty_entity_id?: number | null;
 
   performed_by: number;
   approved_by?: number | null;

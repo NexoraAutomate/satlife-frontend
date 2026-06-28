@@ -2,15 +2,16 @@
 
 import React from 'react';
 import { KPICard } from '@/components/kpi-card';
-import { Card } from '@/components/ui/card';
-import { AlertCircle, CheckCircle2, Wrench, Package, Clock, Lock, type LucideIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Wrench, Package, Lock, ClipboardCheck, type LucideIcon } from 'lucide-react';
 import type { MaintenanceCase } from '@/lib/models';
+import { CASE_STATUS_META, mapCaseStatusFromApi } from '@/lib/maintenance-workflow';
 
 interface StatusCount {
   status: string;
+  label: string;
   count: number;
   icon: LucideIcon;
-  color: 'blue' | 'green' | 'red' | 'amber' | 'orange' | 'slate' | 'emerald';
+  color: 'blue' | 'green' | 'red' | 'amber' | 'orange' | 'slate' | 'emerald' | 'purple';
 }
 
 interface MaintenanceMiniDashboardProps {
@@ -18,82 +19,87 @@ interface MaintenanceMiniDashboardProps {
   onStatusFilter?: (status: string) => void;
 }
 
-export function MaintenanceMiniDashboard({cases, onStatusFilter}: MaintenanceMiniDashboardProps) {
+const FILTER_STATUSES = [
+  'open',
+  'under_inspection',
+  'under_repair',
+  'resolved',
+  'closed',
+] as const;
+
+export function MaintenanceMiniDashboard({ cases, onStatusFilter }: MaintenanceMiniDashboardProps) {
   const totalCount = cases.length;
-  
+
   const statusCounts: StatusCount[] = [
     {
       status: 'Total',
+      label: 'Total',
       count: totalCount,
       icon: Package,
       color: 'emerald',
     },
-    {
-      status: 'open',
-      count: cases.filter((c) => c.status === 'open').length,
-      icon: AlertCircle,
-      color: 'blue',
-    },
-    {
-      status: 'under_inspection',
-      count: cases.filter((c) => c.status === 'under_inspection').length,
-      icon: Wrench,
-      color: 'amber',
-    },
-    {
-      status: 'under_repair',
-      count: cases.filter((c) => c.status === 'under_repair').length,
-      icon: Wrench,
-      color: 'orange',
-    },
-    {
-      status: 'resolved',
-      count: cases.filter((c) => c.status === 'resolved').length,
-      icon: CheckCircle2,
-      color: 'green',
-    },
-    {
-      status: 'closed',
-      count: cases.filter((c) => c.status === 'closed').length,
-      icon: Lock,
-      color: 'slate',
-    },
+    ...FILTER_STATUSES.map((apiStatus) => {
+      const display = mapCaseStatusFromApi(apiStatus);
+      const meta = CASE_STATUS_META[display];
+      return {
+        status: apiStatus,
+        label: meta.label,
+        count: cases.filter((c) => c.status === apiStatus).length,
+        icon:
+          apiStatus === 'open'
+            ? AlertCircle
+            : apiStatus === 'under_inspection'
+            ? Wrench
+            : apiStatus === 'under_repair'
+            ? ClipboardCheck
+            : apiStatus === 'resolved'
+            ? CheckCircle2
+            : Lock,
+        color:
+          apiStatus === 'open'
+            ? ('blue' as const)
+            : apiStatus === 'under_inspection'
+            ? ('amber' as const)
+            : apiStatus === 'under_repair'
+            ? ('orange' as const)
+            : apiStatus === 'resolved'
+            ? ('green' as const)
+            : ('slate' as const),
+      };
+    }),
   ];
 
   const handleStatusClick = (status: string) => {
-    if (onStatusFilter) {
-      onStatusFilter(status);
-    }
+    onStatusFilter?.(status);
   };
 
   return (
     <div className="">
-         {statusCounts.length > 0 && (
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-6 items-stretch">
-            {statusCounts.map((item) => (
-              <button
-                key={item.status}
-                
-                onClick={() => item.status === 'Total' ? handleStatusClick('all') : handleStatusClick(item.status)}
-                className="w-full h-full cursor-pointer transition-transform hover:scale-105 "
-              >
-                <div className = "h-full w-full">
-
-                
+      {statusCounts.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-6 items-stretch">
+          {statusCounts.map((item) => (
+            <button
+              key={item.status}
+              onClick={() =>
+                item.status === 'Total' ? handleStatusClick('all') : handleStatusClick(item.status)
+              }
+              className="w-full h-full cursor-pointer transition-transform hover:scale-105"
+            >
+              <div className="h-full w-full">
                 <KPICard
-                  title={item.status.replace(/_/g, ' ').charAt(0).toUpperCase() + item.status.replace(/_/g, ' ').slice(1)}
+                  title={item.label}
                   value={item.count}
-                  change={item.status != 'Total'? Math.round(100* item.count/totalCount):0}
+                  change={
+                    item.status !== 'Total' ? Math.round((100 * item.count) / totalCount) : 0
+                  }
                   icon={item.icon}
                   accentColor={item.color}
                 />
-                </div>
-              </button>
-            ))}
-          </div>
+              </div>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
 }
-

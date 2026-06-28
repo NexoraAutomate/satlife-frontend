@@ -10,10 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'textarea' | 'select' | 'number';
+  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'file';
   required: boolean;
   placeholder?: string;
   options?: Array<{ label: string; value: number | string }>;
+  accept?: string;
 }
 
 interface EntityFormProps {
@@ -108,6 +109,53 @@ export function EntityForm({
               </SelectContent>
             </Select>
           )}
+
+          {field.type === 'number' && (
+            <Input
+              id={field.name}
+              type="number"
+              placeholder={field.placeholder}
+              value={formData[field.name] ?? ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  [field.name]: e.target.value === '' ? '' : Number(e.target.value),
+                })
+              }
+              className={errors[field.name] ? 'border-red-500' : ''}
+            />
+          )}
+
+          {field.type === 'date' && (
+            <Input
+              id={field.name}
+              type="date"
+              value={formData[field.name] || ''}
+              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+              className={errors[field.name] ? 'border-red-500' : ''}
+            />
+          )}
+
+          {field.type === 'file' && (
+            <Input
+              id={field.name}
+              type="file"
+              accept={field.accept}
+              onChange={(e) =>
+                setFormData({ ...formData, [field.name]: e.target.files?.[0] ?? null })
+              }
+              className={errors[field.name] ? 'border-red-500' : ''}
+            />
+          )}
+
+          {field.name === 'picture_url' && typeof formData.picture_url === 'string' && formData.picture_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={formData.picture_url}
+              alt="Preview"
+              className="mt-2 max-h-32 rounded-md border object-cover"
+            />
+          ) : null}
 
           {errors[field.name] && (
             <p className="text-sm text-red-500">{errors[field.name]}</p>

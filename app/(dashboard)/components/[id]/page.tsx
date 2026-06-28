@@ -9,11 +9,12 @@ import { ArrowLeft, Calendar, Layers, Code2 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { StatusBadge } from '@/components/status-badge';
 import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import { EntityInstallMetadataCard } from '@/components/entity-install-metadata-card';
 
 export default function ComponentDetailPage() {
   const params = useParams();
   const componentId = params.id as string;
-  const { components, units, modules } = useDataStore();
+  const { components, units, modules, updateComponent } = useDataStore();
   
   const component = components.find((c) => String(c.id) === componentId);
   const unit = component ? units.find((u) => u.id === component.unit_id) : null;
@@ -125,6 +126,12 @@ export default function ComponentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EntityInstallMetadataCard
+        ownerType="component"
+        entity={component}
+        onUpdate={(data) => updateComponent(component.id, data)}
+      />
 
       {/* Component Details */}
       <Card>

@@ -157,7 +157,10 @@ export const hierarchies = {
 
 // Inventory
 export const inventory = {
-  list: (skip = 0, limit = 100) => api.get<Models.Inventory[]>("/inventory/", { params: { skip, limit } }),
+  list: (skip = 0, limit = 100, inventoryType?: string) =>
+    api.get<Models.Inventory[]>('/inventory/', {
+      params: buildQueryParams({ skip, limit, inventory_type: inventoryType }),
+    }),
   get: (id: number) => api.get<Models.Inventory>(`/inventory/${id}/`),
   create: (data: Partial<Models.Inventory>) => api.post<Models.Inventory>("/inventory/", data),
   update: (id: number, data: Partial<Models.Inventory>) => api.put<Models.Inventory>(`/inventory/${id}/`, data),
@@ -219,6 +222,8 @@ export const maintenanceCases = {
   lookupEntityByPartNumber: (partNumber: string) => api.get<Models.lookUpResponse>(`/entities/lookup-by-PN/${encodeURIComponent(partNumber)}/`),
   suspectChildren: (caseId: number, data: Models.SuspectChildrenPayload) => api.post(`/maintenance-cases/${caseId}/suspect-children/`, data),
   confirmFault: (caseId: number, data: Models.ConfirmFaultPayload) => api.post(`/maintenance-cases/${caseId}/confirm-fault/`, data),
+  adminHierarchyReplace: (data: Models.AdminHierarchyReplacePayload) =>
+    api.post<Models.AdminHierarchyReplaceResponse>('/maintenance-cases/admin-hierarchy-replace/', data),
 };
 
 // Faulty Entities
@@ -232,6 +237,8 @@ export const faultyEntities = {
   delete: (id: number) =>    api.delete(`/faulty-entities/${id}/`),
   cascadeFault: (entityId: number, faultType: string) =>    api.post(`/faulty-entities/${entityId}/cascade-fault/`, {fault_type: faultType }),
   getMaintenanceHistory: (entityId: number) => api.get<Models.MaintenanceAction[]>(`/faulty-entities/${entityId}/history/`),
+  getEntityMaintenanceHistory: (entityType: string, entityId: number) =>
+    api.get<Models.FaultyEntity[]>(`/entities/${entityType}/${entityId}/maintenance-history/`),
 };
 
 // Maintenance Actions
@@ -286,6 +293,35 @@ export const configurationHistory = {
     }),
   create: (data: Models.CreateConfigurationHistoryPayload) =>    api.post<Models.ConfigurationHistory>('/configuration_history/', data),
   update: (id: number, data: Models.UpdateConfigurationHistoryPayload) =>    api.put<Models.ConfigurationHistory>(`/configuration_history/${id}/`, data),
+};
+
+// Entity attachments
+export const attachments = {
+  list: (ownerType: string, ownerId: number) =>
+    api.get<Models.EntityAttachment[]>('/attachments/', {
+      params: buildQueryParams({ owner_type: ownerType, owner_id: ownerId }),
+    }),
+  upload: async (ownerType: string, ownerId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('owner_type', ownerType);
+    formData.append('owner_id', String(ownerId));
+    formData.append('file', file);
+    return api.post<Models.EntityAttachment>('/attachments/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  delete: (attachmentId: number) => api.delete(`/attachments/${attachmentId}/`),
+  download: async (attachmentId: number, fileName: string) => {
+    const res = await api.get<Blob>(`/attachments/${attachmentId}/download/`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(res.data);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
 };
 
 export default api;

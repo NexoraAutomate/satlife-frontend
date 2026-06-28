@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { StatusBadge } from '@/components/status-badge';
+import { MaintenanceCaseStatusBadge } from '@/components/maintenance/badges';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,7 @@ interface MaintenanceTableProps {
   onView?: (caseItem: MaintenanceCase) => void;
   isLoading?: boolean;
   getFaultyEntities?: (caseId: number) => Promise<FaultyEntity[]>;
-  getMaintenanceActions?: (faultyEntityId: number) => Promise<MaintenanceAction[]>;
+  getMaintenanceActions?: (caseId: number, faultyEntityIds: number[]) => Promise<MaintenanceAction[]>;
   getMaintenanceDeliveries?: (caseId: number) => Promise<MaintenanceDelivery[]>;
 }
 
@@ -82,8 +82,11 @@ export function MaintenanceTable({
         ]);
 
         let maintenanceActions: MaintenanceAction[] = [];
-        if (getMaintenanceActions && faultyEntities.length > 0) {
-          maintenanceActions = await getMaintenanceActions(faultyEntities[0].id);
+        if (getMaintenanceActions) {
+          maintenanceActions = await getMaintenanceActions(
+            id,
+            faultyEntities.map((entity) => entity.id)
+          );
         }
 
         setExpandedRows((prev) => {
@@ -201,7 +204,7 @@ export function MaintenanceTable({
                       {caseItem.description}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={caseItem.status} />
+                      <MaintenanceCaseStatusBadge apiStatus={caseItem.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(caseItem.reported_at).toLocaleDateString()}
@@ -273,6 +276,7 @@ export function MaintenanceTable({
                               <TabsContent value="actions" className="mt-4">
                                 <MaintenanceActionTable
                                   actions={expanded.maintenanceActions}
+                                  entities={expanded.faultyEntities}
                                 />
                               </TabsContent>
 

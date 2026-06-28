@@ -17,13 +17,15 @@ import { toast } from 'sonner';
 import * as Models from '@/lib/models';
 import type { Inventory } from '@/lib/models';
 import { getChildInventoryType, nextSerialNumberFromInventory } from '@/lib/entity-hierarchy';
+import { inventoryToHierarchyCreatePayload } from '@/lib/hierarchy-install-fields';
 import * as api from '@/lib/api';
 import { EntityStatusHistorySheet } from '@/components/entity-status-history-sheet';
+import { EntityInstallMetadataCard } from '@/components/entity-install-metadata-card';
 
 export default function SubsystemDetailPage() {
   const params = useParams();
   const subsystemId = params.id as string;
-  const { subsystems, loading, systems, modules, createModule, deleteModule, updateModule } = useDataStore();
+  const { subsystems, loading, systems, modules, createModule, deleteModule, updateModule, updateSubsystem } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -154,8 +156,10 @@ export default function SubsystemDetailPage() {
       description: item.description || '',
       subsystem_id: subsystem.id,
       status_id: defaultStatus.id,
-      part_number: item.manufacturer_part_number || '',
-      serial_number: nextSerialNumberFromInventory(item, subsystemModules),
+      ...inventoryToHierarchyCreatePayload(
+        item,
+        nextSerialNumberFromInventory(item, subsystemModules)
+      ),
     });
   }
 
@@ -283,6 +287,12 @@ export default function SubsystemDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EntityInstallMetadataCard
+        ownerType="subsystem"
+        entity={subsystem}
+        onUpdate={(data) => updateSubsystem(subsystem.id, data)}
+      />
 
       {/* Modules Cards */}
       <EntityCards

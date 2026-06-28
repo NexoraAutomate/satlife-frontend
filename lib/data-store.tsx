@@ -9,6 +9,24 @@ import * as MaintenanceTypes from '@/lib/models';
 import { enrichEntitiesWithStatus, enrichEntityWithStatus } from './entity-status';
 import { toast } from 'sonner';
 
+async function fetchAllPages<T>(
+  listPage: (skip: number, limit: number) => Promise<AxiosResponse<T[]>>,
+  pageSize = 500
+): Promise<AxiosResponse<T[]>> {
+  const all: T[] = [];
+  let skip = 0;
+
+  while (true) {
+    const response = await listPage(skip, pageSize);
+    const page = response.data ?? [];
+    all.push(...page);
+    if (page.length < pageSize) break;
+    skip += pageSize;
+  }
+
+  return { data: all } as AxiosResponse<T[]>;
+}
+
 interface DataStoreContextType {
   // Data
   users: Models.User[];
@@ -216,11 +234,11 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         api.customers.list(0, 100),
         api.orders.list(0, 100),
         api.projects.list(0, 100),
-        api.systems.list(0, 100),
-        api.subsystems.list(0, 100),
-        api.modules.list(0, 100),
-        api.units.list(0, 100),
-        api.components.list(0, 100),
+        fetchAllPages(api.systems.list),
+        fetchAllPages(api.subsystems.list),
+        fetchAllPages(api.modules.list),
+        fetchAllPages(api.units.list),
+        fetchAllPages(api.components.list),
         api.inventory.list(0, 100),
         api.statuses.list(),
         api.maintenanceLogs.list(),

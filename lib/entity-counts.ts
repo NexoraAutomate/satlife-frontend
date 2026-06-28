@@ -75,17 +75,29 @@ export function getComponentCountByUnitId(
   return buildChildCountMap(components, (component) => component.unit_id);
 }
 
-export function getInventoryQuantityByComponentId(
-  inventory: { component_id: number; quantity: number }[]
+export function getInventoryQuantityByEntityId(
+  inventory: { entity_id?: number; quantity: number }[]
 ): Map<number, number> {
   const map = new Map<number, number>();
 
   for (const item of inventory) {
+    if (item.entity_id == null) continue;
     map.set(
-      item.component_id,
-      (map.get(item.component_id) ?? 0) + item.quantity
+      item.entity_id,
+      (map.get(item.entity_id) ?? 0) + item.quantity
     );
   }
 
   return map;
+}
+
+/** @deprecated Use getInventoryQuantityByEntityId */
+export function getInventoryQuantityByComponentId(
+  inventory: { entity_id?: number; component_id?: number; quantity: number }[]
+): Map<number, number> {
+  const normalized = inventory.map((item) => ({
+    entity_id: item.entity_id ?? item.component_id,
+    quantity: item.quantity,
+  }));
+  return getInventoryQuantityByEntityId(normalized);
 }

@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { HierarchyNodeFieldLines } from '@/components/hierarchy-node-legend';
@@ -42,6 +42,7 @@ const LEVEL_STYLES: Record<
 type HierarchyFlowActions = {
   onToggleDetails: (entityId: number, type: HierarchyEntityType) => void;
   onNavigate?: (entityId: number, type: HierarchyEntityType) => void;
+  onViewResolutionHistory?: (entityId: number, type: HierarchyEntityType) => void;
 };
 
 const HierarchyFlowActionsContext = createContext<HierarchyFlowActions | null>(null);
@@ -54,13 +55,17 @@ export function HierarchyFlowActionsProvider({
   children,
   onToggleDetails,
   onNavigate,
+  onViewResolutionHistory,
 }: {
   children: React.ReactNode;
   onToggleDetails: HierarchyFlowActions['onToggleDetails'];
   onNavigate?: HierarchyFlowActions['onNavigate'];
+  onViewResolutionHistory?: HierarchyFlowActions['onViewResolutionHistory'];
 }) {
   return (
-    <HierarchyFlowActionsContext.Provider value={{ onToggleDetails, onNavigate }}>
+    <HierarchyFlowActionsContext.Provider
+      value={{ onToggleDetails, onNavigate, onViewResolutionHistory }}
+    >
       {children}
     </HierarchyFlowActionsContext.Provider>
   );
@@ -85,9 +90,18 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
     actions?.onNavigate?.(data.entityId, data.type);
   };
 
+  const handleResolutionHistory = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    actions?.onViewResolutionHistory?.(data.entityId, data.type);
+  };
+
+  const showBuildTimeline = Boolean(actions?.onViewResolutionHistory);
+  const hasReplacements = Boolean(data.hasResolutionHistory);
+
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!bg-muted-foreground/40" />
+      <Handle type="target" position={Position.Top} className="bg-muted-foreground/40!" />
       <div
         role={canNavigate ? 'button' : undefined}
         tabIndex={canNavigate ? 0 : undefined}
@@ -116,16 +130,33 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
           <Badge variant="outline" className={cn('text-[10px] uppercase', styles.badge)}>
             {styles.label}
           </Badge>
-          <button
-            type="button"
-            className="nodrag nopan nowheel flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title="Toggle details panel"
-            aria-label={`Toggle details for ${data.label}`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleToggle}
-          >
-            <ChevronRight className="pointer-events-none h-3.5 w-3.5" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            {showBuildTimeline ? (
+              <button
+                type="button"
+                className={cn(
+                  'nodrag nopan nowheel relative flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-300',
+                  hasReplacements && 'ring-1 ring-amber-500/40'
+                )}
+                title="View initial build timeline"
+                aria-label={`View build timeline for ${data.label}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={handleResolutionHistory}
+              >
+                <History className="pointer-events-none h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="nodrag nopan nowheel flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Toggle details panel"
+              aria-label={`Toggle details for ${data.label}`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleToggle}
+            >
+              <ChevronRight className="pointer-events-none h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <p
           className={cn(
@@ -137,7 +168,7 @@ function HierarchyFlowNode({ data }: NodeProps<Node<HierarchyNodeData>>) {
         </p>
         <HierarchyNodeFieldLines data={data} />
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground/40" />
+      <Handle type="source" position={Position.Bottom} className="bg-muted-foreground/40!"/>
     </>
   );
 }

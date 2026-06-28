@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +21,14 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import type { MaintenanceCase, CreateMaintenanceCasePayload, UpdateMaintenanceCasePayload } from '@/lib/models';
+import {
+  CASE_STATUS_META,
+  CASE_WORKFLOW_ORDER,
+  getAllowedCaseStatusTransitions,
+  mapCaseStatusFromApi,
+  mapCaseStatusToApi,
+  MaintenanceCaseWorkflowStatus,
+} from '@/lib/maintenance-workflow';
 
 interface MaintenanceCaseDialogProps {
   isOpen: boolean;
@@ -31,13 +39,13 @@ interface MaintenanceCaseDialogProps {
   isLoading?: boolean;
 }
 
-const CASE_STATUSES = [
-  { value: 'open', label: 'Open' },
-  { value: 'under_inspection', label: 'Under Inspection' },
-  { value: 'under_repair', label: 'Under Repair' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'closed', label: 'Closed' },
-];
+const API_CASE_OPTIONS = CASE_WORKFLOW_ORDER.filter(
+  (status) => status !== MaintenanceCaseWorkflowStatus.AWAITING_VERIFICATION
+).map((displayStatus) => ({
+  displayStatus,
+  apiValue: mapCaseStatusToApi(displayStatus),
+  label: CASE_STATUS_META[displayStatus].label,
+}));
 
 export function MaintenanceCaseDialog({
   isOpen,
@@ -53,6 +61,21 @@ export function MaintenanceCaseDialog({
     status: 'open',
     resolution_notes: '',
   });
+
+  const currentDisplayStatus = useMemo(
+    () => mapCaseStatusFromApi(formData.status),
+    [formData.status]
+  );
+
+  const allowedStatuses = useMemo(() => {
+    const transitions = getAllowedCaseStatusTransitions(currentDisplayStatus);
+    const options = API_CASE_OPTIONS.filter(
+      (option) =>
+        option.apiValue === formData.status ||
+        transitions.some((t) => mapCaseStatusToApi(t) === option.apiValue)
+    );
+    return options.length ? options : API_CASE_OPTIONS;
+  }, [currentDisplayStatus, formData.status]);
 
   useEffect(() => {
     if (editingCase) {
@@ -83,18 +106,18 @@ export function MaintenanceCaseDialog({
     try {
       if (editingCase) {
         await onSubmit({
-          status: formData.status as any,
+          status: formData.status as CreateMaintenanceCasePayload['status'],
           resolution_notes: formData.resolution_notes,
         });
       } else {
         await onSubmit({
           project_id: parseInt(formData.project_id),
           description: formData.description,
-          status: formData.status as any,
+          status: formData.status as CreateMaintenanceCasePayload['status'],
         });
       }
       onClose();
-    } catch (err) {
+    } catch {
       // Error is handled by caller
     }
   };
@@ -164,8 +187,8 @@ export function MaintenanceCaseDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CASE_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
+                {allowedStatuses.map((s) => (
+                  <SelectItem key={s.apiValue} value={s.apiValue}>
                     {s.label}
                   </SelectItem>
                 ))}
