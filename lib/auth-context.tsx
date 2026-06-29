@@ -15,10 +15,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Models.User | null>(null);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const stored = localStorage.getItem('sat-user');
     if (stored) {
       try {
@@ -73,7 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userData = await userResponse.json();
     const userDataWithRole = {
       ...userData,
-      roles: userData.roles.map((r: any) => r.name), // 👈 FIX
+      roles: Array.isArray(userData.roles)
+        ? userData.roles.map((r: { name?: string } | string) =>
+            typeof r === 'string' ? r : r.name
+          ).filter(Boolean)
+        : [],
     };
     
     setUser(userDataWithRole);
@@ -88,8 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const hasAccess = () => true; // Placeholder for actual access control logic
-
-  if (!mounted) return null;
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, hasAccess }}>

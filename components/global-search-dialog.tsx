@@ -11,6 +11,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { useDataStore } from '@/lib/data-store';
+import { useEnsureHierarchy } from '@/hooks/use-ensure-hierarchy';
 import {
   GLOBAL_SEARCH_GROUP_ORDER,
   GLOBAL_SEARCH_MIN_LENGTH,
@@ -42,6 +43,7 @@ export function GlobalSearchDialog({
     components,
     loading,
   } = useDataStore();
+  const { hierarchyLoading, hierarchyReady, hierarchyAttempted } = useEnsureHierarchy();
   const [query, setQuery] = useState(initialQuery);
 
   useEffect(() => {
@@ -49,6 +51,9 @@ export function GlobalSearchDialog({
       setQuery(initialQuery);
     }
   }, [open, initialQuery]);
+
+  const searchLoading =
+    open && (loading || hierarchyLoading || (!hierarchyReady && !hierarchyAttempted));
 
   const results = useMemo(
     () =>
@@ -95,7 +100,7 @@ export function GlobalSearchDialog({
 
   const trimmed = query.trim();
   const showHint = trimmed.length > 0 && trimmed.length < GLOBAL_SEARCH_MIN_LENGTH;
-  const showEmpty = trimmed.length >= GLOBAL_SEARCH_MIN_LENGTH && results.length === 0 && !loading;
+  const showEmpty = trimmed.length >= GLOBAL_SEARCH_MIN_LENGTH && results.length === 0 && !searchLoading;
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search" description="Find customers, projects, cases, and entities">
@@ -105,7 +110,7 @@ export function GlobalSearchDialog({
         onValueChange={setQuery}
       />
       <CommandList>
-        {loading ? (
+        {searchLoading ? (
           <p className="py-6 text-center text-sm text-muted-foreground">Loading data…</p>
         ) : showHint ? (
           <p className="py-6 text-center text-sm text-muted-foreground">

@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from 'next-themes'
 import { AuthProvider } from '@/lib/auth-context'
-import { DataStoreProvider } from '@/lib/data-store'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -50,10 +49,8 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <DataStoreProvider>
-              {children}
-              <Toaster />
-            </DataStoreProvider>
+            {children}
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
         <Analytics />

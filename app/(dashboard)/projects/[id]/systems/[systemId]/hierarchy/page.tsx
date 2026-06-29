@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDataStore } from '@/lib/data-store';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { SystemHierarchyFlow } from '@/components/system-hierarchy-flow';
 
 export default function SystemHierarchyPage() {
@@ -12,7 +13,8 @@ export default function SystemHierarchyPage() {
   const projectId = params.id as string;
   const systemId = params.systemId as string;
 
-  const { projects, systems, subsystems, modules, units, components, statuses, loading } =
+  const { pageLoading } = useEntityHierarchyGate();
+  const { projects, systems, subsystems, modules, units, components, statuses } =
     useDataStore();
 
   const project = projects.find((p) => String(p.id) === projectId);
@@ -20,7 +22,7 @@ export default function SystemHierarchyPage() {
     (s) => String(s.id) === systemId && s.project_id === project?.id
   );
 
-  if (loading) {
+  if (pageLoading) {
     return <div className="p-8 text-center">Loading...</div>;
   }
 

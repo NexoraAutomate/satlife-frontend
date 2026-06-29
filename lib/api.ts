@@ -17,6 +17,7 @@ export function buildQueryParams(
 
 const api = axios.create({
   baseURL: API_BASE,
+  timeout: 20_000,
 });
 
 api.interceptors.request.use((config) => {

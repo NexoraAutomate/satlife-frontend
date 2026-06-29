@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useDataStore } from '@/lib/data-store';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,7 +32,8 @@ import {
 export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
-  const { projects, systems, orders, loading, createSystem, deleteSystem, updateSystem, users } = useDataStore();
+  const { pageLoading } = useEntityHierarchyGate();
+  const { projects, systems, orders, createSystem, deleteSystem, updateSystem, users } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -213,7 +215,7 @@ export default function ProjectDetailPage() {
     fetchData();
   }, []);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (pageLoading) return <div className="p-8 text-center">Loading...</div>;
 
   if (!project) {
     return (

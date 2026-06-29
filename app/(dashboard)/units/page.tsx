@@ -20,6 +20,7 @@ import { getComponentCountByUnitId, getCount } from '@/lib/entity-counts';
 import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { HierarchyListDashboard } from '@/components/hierarchy/hierarchy-list-dashboard';
 import { ParentEntityLink } from '@/components/entity-link';
 import { buildHierarchyPageUrl } from '@/lib/hierarchy-page-filters';
@@ -28,7 +29,8 @@ import { UNITS_DASHBOARD_CONFIG, UNIT_STATUS_NAMES } from '@/lib/hierarchy-dashb
 export default function UnitsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { units, modules, components, loading, createUnit, updateUnit, deleteUnit } = useDataStore();
+  const { pageLoading } = useEntityHierarchyGate();
+  const { units, modules, components, createUnit, updateUnit, deleteUnit } = useDataStore();
   const faultMap = useEntityFaultMap();
   const statusFilterParam = searchParams.get('status');
   const parentFilterParam = searchParams.get('module_id');
@@ -173,7 +175,7 @@ export default function UnitsPage() {
   }
 
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (pageLoading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="space-y-8">

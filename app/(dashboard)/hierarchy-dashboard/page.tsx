@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDataStore } from '@/lib/data-store';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { HierarchySearchCombobox } from '@/components/hierarchy-dashboard/hierarchy-search-combobox';
@@ -45,6 +46,7 @@ function clearChildSelections(
 }
 
 export default function HierarchyDashboardPage() {
+  const { pageLoading } = useEntityHierarchyGate();
   const {
     projects,
     systems,
@@ -53,7 +55,6 @@ export default function HierarchyDashboardPage() {
     units,
     components,
     statuses,
-    loading,
   } = useDataStore();
 
   const [selection, setSelection] = useState<HierarchyDashboardSelection>({});
@@ -203,7 +204,7 @@ export default function HierarchyDashboardPage() {
     }
   };
 
-  if (loading) {
+  if (pageLoading) {
     return <div className="p-8 text-center">Loading...</div>;
   }
 

@@ -5,19 +5,19 @@ import { toast } from 'sonner';
 import { useDataStore } from '@/lib/data-store';
 import { useAppNotifications } from '@/hooks/use-app-notifications';
 
-const POLL_MS = 12_000;
+const POLL_MS = 60_000;
 
 export function useNotificationSync() {
-  const { refreshData } = useDataStore();
+  const { refreshLightweight } = useDataStore();
   const { notifications } = useAppNotifications();
   const seenIdsRef = useRef<Set<string>>(new Set());
   const readyRef = useRef(false);
 
   useEffect(() => {
-    const timer = setInterval(() => refreshData({ silent: true }), POLL_MS);
-    const onFocus = () => refreshData({ silent: true });
+    const timer = setInterval(() => refreshLightweight(), POLL_MS);
+    const onFocus = () => refreshLightweight();
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') refreshData({ silent: true });
+      if (document.visibilityState === 'visible') refreshLightweight();
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
@@ -26,7 +26,7 @@ export function useNotificationSync() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [refreshData]);
+  }, [refreshLightweight]);
 
   useEffect(() => {
     const currentIds = new Set(notifications.map((n) => n.id));

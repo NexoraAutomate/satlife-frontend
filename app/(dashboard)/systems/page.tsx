@@ -23,6 +23,7 @@ import { parseHierarchyInstallPayload } from '@/lib/hierarchy-install-fields';
 import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { SystemsListDashboard } from '@/components/systems/systems-list-dashboard';
 import { ParentEntityLink } from '@/components/entity-link';
 
@@ -33,7 +34,8 @@ const SYSTEM_STATUS_NAMES = ['Design', 'Development', 'Testing', 'Operational', 
 export default function SystemsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { systems, projects, subsystems, loading, createSystem, updateSystem, deleteSystem, statuses: storeStatuses, users } = useDataStore();
+  const { pageLoading } = useEntityHierarchyGate();
+  const { systems, projects, subsystems, createSystem, updateSystem, deleteSystem, statuses: storeStatuses, users } = useDataStore();
   const faultMap = useEntityFaultMap();
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -212,7 +214,7 @@ export default function SystemsPage() {
         fetchStatuses();
       }, []);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (pageLoading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="space-y-8">

@@ -75,6 +75,58 @@ export interface HierarchyData {
   components: Component[];
 }
 
+interface HierarchyIndexes {
+  componentsById: Map<number, Component>;
+  unitsById: Map<number, Unit>;
+  modulesById: Map<number, Module>;
+  subsystemsById: Map<number, Subsystem>;
+  systemsById: Map<number, System>;
+  projectsById: Map<number, Project>;
+  subsystemsBySystemId: Map<number, Subsystem[]>;
+  modulesBySubsystemId: Map<number, Module[]>;
+  unitsByModuleId: Map<number, Unit[]>;
+  componentsByUnitId: Map<number, Component[]>;
+  faultyEntitiesById: Map<number, FaultyEntity>;
+  childrenByParentFaultId: Map<number, FaultyEntity[]>;
+}
+
+function groupById<T, K extends number>(
+  items: T[],
+  keyFn: (item: T) => K
+): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const item of items) {
+    const key = keyFn(item);
+    const bucket = map.get(key);
+    if (bucket) bucket.push(item);
+    else map.set(key, [item]);
+  }
+  return map;
+}
+
+function buildHierarchyIndexes(
+  h: HierarchyData,
+  faultyEntities: FaultyEntity[]
+): HierarchyIndexes {
+  return {
+    componentsById: new Map(h.components.map((c) => [c.id, c])),
+    unitsById: new Map(h.units.map((u) => [u.id, u])),
+    modulesById: new Map(h.modules.map((m) => [m.id, m])),
+    subsystemsById: new Map(h.subsystems.map((s) => [s.id, s])),
+    systemsById: new Map(h.systems.map((s) => [s.id, s])),
+    projectsById: new Map(h.projects.map((p) => [p.id, p])),
+    subsystemsBySystemId: groupById(h.subsystems, (s) => s.system_id),
+    modulesBySubsystemId: groupById(h.modules, (m) => m.subsystem_id),
+    unitsByModuleId: groupById(h.units, (u) => u.module_id),
+    componentsByUnitId: groupById(h.components, (c) => c.unit_id),
+    faultyEntitiesById: new Map(faultyEntities.map((fe) => [fe.id, fe])),
+    childrenByParentFaultId: groupById(
+      faultyEntities.filter((fe) => fe.parent_faulty_entity_id != null),
+      (fe) => fe.parent_faulty_entity_id as number
+    ),
+  };
+}
+
 function mergeStatus(
   map: Map<string, FaultyEntityStatus>,
   key: string,
@@ -98,55 +150,55 @@ function openCaseIds(cases: MaintenanceCase[]): Set<number> {
 function hardwareAncestorKeys(
   entityType: EntityType | string,
   entityId: number,
-  h: HierarchyData
+  idx: HierarchyIndexes
 ): string[] {
   const keys: string[] = [];
 
-  const component = h.components.find((c) => c.id === entityId);
-  const unit = h.units.find((u) => u.id === entityId);
-  const module = h.modules.find((m) => m.id === entityId);
-  const subsystem = h.subsystems.find((s) => s.id === entityId);
-  const system = h.systems.find((s) => s.id === entityId);
+  const component = idx.componentsById.get(entityId);
+  const unit = idx.unitsById.get(entityId);
+  const module = idx.modulesById.get(entityId);
+  const subsystem = idx.subsystemsById.get(entityId);
+  const system = idx.systemsById.get(entityId);
 
   let currentSystem: System | undefined;
   let currentProject: Project | undefined;
 
   if (entityType === EntityType.Component && component) {
     keys.push(entityScopeKey('component', component.id));
-    const u = h.units.find((x) => x.id === component.unit_id);
+    const u = idx.unitsById.get(component.unit_id);
     if (u) {
       keys.push(entityScopeKey('unit', u.id));
-      const m = h.modules.find((x) => x.id === u.module_id);
+      const m = idx.modulesById.get(u.module_id);
       if (m) {
         keys.push(entityScopeKey('module', m.id));
-        const sub = h.subsystems.find((x) => x.id === m.subsystem_id);
+        const sub = idx.subsystemsById.get(m.subsystem_id);
         if (sub) {
           keys.push(entityScopeKey('subsystem', sub.id));
-          currentSystem = h.systems.find((x) => x.id === sub.system_id);
+          currentSystem = idx.systemsById.get(sub.system_id);
         }
       }
     }
   } else if (entityType === EntityType.Unit && unit) {
     keys.push(entityScopeKey('unit', unit.id));
-    const m = h.modules.find((x) => x.id === unit.module_id);
+    const m = idx.modulesById.get(unit.module_id);
     if (m) {
       keys.push(entityScopeKey('module', m.id));
-      const sub = h.subsystems.find((x) => x.id === m.subsystem_id);
+      const sub = idx.subsystemsById.get(m.subsystem_id);
       if (sub) {
         keys.push(entityScopeKey('subsystem', sub.id));
-        currentSystem = h.systems.find((x) => x.id === sub.system_id);
+        currentSystem = idx.systemsById.get(sub.system_id);
       }
     }
   } else if (entityType === EntityType.Module && module) {
     keys.push(entityScopeKey('module', module.id));
-    const sub = h.subsystems.find((x) => x.id === module.subsystem_id);
+    const sub = idx.subsystemsById.get(module.subsystem_id);
     if (sub) {
       keys.push(entityScopeKey('subsystem', sub.id));
-      currentSystem = h.systems.find((x) => x.id === sub.system_id);
+      currentSystem = idx.systemsById.get(sub.system_id);
     }
   } else if (entityType === EntityType.Subsystem && subsystem) {
     keys.push(entityScopeKey('subsystem', subsystem.id));
-    currentSystem = h.systems.find((x) => x.id === subsystem.system_id);
+    currentSystem = idx.systemsById.get(subsystem.system_id);
   } else if (entityType === EntityType.System && system) {
     keys.push(entityScopeKey('system', system.id));
     currentSystem = system;
@@ -154,7 +206,7 @@ function hardwareAncestorKeys(
 
   if (currentSystem) {
     keys.push(entityScopeKey('system', currentSystem.id));
-    currentProject = h.projects.find((p) => p.id === currentSystem!.project_id);
+    currentProject = idx.projectsById.get(currentSystem.project_id);
   }
 
   if (currentProject) {
@@ -170,30 +222,30 @@ function hardwareAncestorKeys(
 function hardwareDescendantKeys(
   entityType: EntityType | string,
   entityId: number,
-  h: HierarchyData
+  idx: HierarchyIndexes
 ): string[] {
   const keys: string[] = [];
 
   if (entityType === EntityType.System) {
-    const subs = h.subsystems.filter((s) => s.system_id === entityId);
+    const subs = idx.subsystemsBySystemId.get(entityId) ?? [];
     for (const sub of subs) {
       keys.push(entityScopeKey('subsystem', sub.id));
-      keys.push(...hardwareDescendantKeys(EntityType.Subsystem, sub.id, h));
+      keys.push(...hardwareDescendantKeys(EntityType.Subsystem, sub.id, idx));
     }
   } else if (entityType === EntityType.Subsystem) {
-    const mods = h.modules.filter((m) => m.subsystem_id === entityId);
+    const mods = idx.modulesBySubsystemId.get(entityId) ?? [];
     for (const mod of mods) {
       keys.push(entityScopeKey('module', mod.id));
-      keys.push(...hardwareDescendantKeys(EntityType.Module, mod.id, h));
+      keys.push(...hardwareDescendantKeys(EntityType.Module, mod.id, idx));
     }
   } else if (entityType === EntityType.Module) {
-    const units = h.units.filter((u) => u.module_id === entityId);
+    const units = idx.unitsByModuleId.get(entityId) ?? [];
     for (const unit of units) {
       keys.push(entityScopeKey('unit', unit.id));
-      keys.push(...hardwareDescendantKeys(EntityType.Unit, unit.id, h));
+      keys.push(...hardwareDescendantKeys(EntityType.Unit, unit.id, idx));
     }
   } else if (entityType === EntityType.Unit) {
-    const comps = h.components.filter((c) => c.unit_id === entityId);
+    const comps = idx.componentsByUnitId.get(entityId) ?? [];
     for (const comp of comps) {
       keys.push(entityScopeKey('component', comp.id));
     }
@@ -204,10 +256,10 @@ function hardwareDescendantKeys(
 
 function faultyEntityDescendantKeys(
   rootId: number,
-  faultyEntities: FaultyEntity[]
+  idx: HierarchyIndexes
 ): number[] {
-  const children = faultyEntities.filter((fe) => fe.parent_faulty_entity_id === rootId);
-  return children.flatMap((c) => [c.id, ...faultyEntityDescendantKeys(c.id, faultyEntities)]);
+  const children = idx.childrenByParentFaultId.get(rootId) ?? [];
+  return children.flatMap((c) => [c.id, ...faultyEntityDescendantKeys(c.id, idx)]);
 }
 
 export function buildEntityFaultMap(input: {
@@ -217,6 +269,7 @@ export function buildEntityFaultMap(input: {
 }): Map<string, FaultyEntityStatus> {
   const map = new Map<string, FaultyEntityStatus>();
   const openIds = openCaseIds(input.maintenanceCases);
+  const idx = buildHierarchyIndexes(input.hierarchy, input.faultyEntities);
 
   const activeFaults = input.faultyEntities.filter(
     (fe) => openIds.has(fe.case_id) && !TERMINAL_STATUSES.has(fe.status)
@@ -226,19 +279,19 @@ export function buildEntityFaultMap(input: {
     const status = fe.status as FaultyEntityStatus;
     mergeStatus(map, entityScopeKey(fe.entity_type, fe.entity_id), status);
 
-    for (const key of hardwareAncestorKeys(fe.entity_type, fe.entity_id, input.hierarchy)) {
+    for (const key of hardwareAncestorKeys(fe.entity_type, fe.entity_id, idx)) {
       mergeStatus(map, key, status);
     }
 
-    for (const key of hardwareDescendantKeys(fe.entity_type, fe.entity_id, input.hierarchy)) {
+    for (const key of hardwareDescendantKeys(fe.entity_type, fe.entity_id, idx)) {
       mergeStatus(map, key, FaultyEntityStatus.SUSPECTED);
     }
 
-    for (const childFeId of faultyEntityDescendantKeys(fe.id, input.faultyEntities)) {
-      const child = input.faultyEntities.find((x) => x.id === childFeId);
+    for (const childFeId of faultyEntityDescendantKeys(fe.id, idx)) {
+      const child = idx.faultyEntitiesById.get(childFeId);
       if (!child || !openIds.has(child.case_id) || TERMINAL_STATUSES.has(child.status)) continue;
       mergeStatus(map, entityScopeKey(child.entity_type, child.entity_id), child.status);
-      for (const key of hardwareAncestorKeys(child.entity_type, child.entity_id, input.hierarchy)) {
+      for (const key of hardwareAncestorKeys(child.entity_type, child.entity_id, idx)) {
         mergeStatus(map, key, child.status);
       }
     }

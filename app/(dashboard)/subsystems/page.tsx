@@ -20,6 +20,7 @@ import { getModuleCountBySubsystemId, getCount } from '@/lib/entity-counts';
 import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { HierarchyListDashboard } from '@/components/hierarchy/hierarchy-list-dashboard';
 import { ParentEntityLink } from '@/components/entity-link';
 import { buildHierarchyPageUrl } from '@/lib/hierarchy-page-filters';
@@ -31,7 +32,8 @@ import {
 export default function SubsystemsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { subsystems, systems, modules, loading, createSubsystem, updateSubsystem, deleteSubsystem } = useDataStore();
+  const { pageLoading } = useEntityHierarchyGate();
+  const { subsystems, systems, modules, createSubsystem, updateSubsystem, deleteSubsystem } = useDataStore();
   const faultMap = useEntityFaultMap();
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -196,7 +198,7 @@ export default function SubsystemsPage() {
     fetchHierarchyNames();
   }, []);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (pageLoading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="space-y-8">

@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useDataStore } from '@/lib/data-store';
+import { useEntityHierarchyGate } from '@/hooks/use-ensure-hierarchy';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +29,8 @@ import { EntityInstallMetadataCard } from '@/components/entity-install-metadata-
 export default function SystemDetailPage() {
   const params = useParams();
   const systemId = params.id as string;
-  const { systems, projects, loading, subsystems, createSubsystem, deleteSubsystem, updateSubsystem, updateSystem, statuses: storeStatuses } = useDataStore();
+  const { pageLoading } = useEntityHierarchyGate();
+  const { systems, projects, subsystems, createSubsystem, deleteSubsystem, updateSubsystem, updateSystem, statuses: storeStatuses } = useDataStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -220,7 +222,7 @@ export default function SystemDetailPage() {
     fetchData();
   }, [system]);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (pageLoading) return <div className="p-8 text-center">Loading...</div>;
 
   if (!system) {
     return (

@@ -1,31 +1,19 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import type { AxiosResponse } from 'axios';
 import * as api from './api';
+import { useAuth } from './auth-context';
 // import * as maintenanceApi from '@/lib/maintenance';
 import * as Models from './models';
 import * as MaintenanceTypes from '@/lib/models';
 import { enrichEntitiesWithStatus, enrichEntityWithStatus } from './entity-status';
+import {
+  fetchCappedPages,
+  HIERARCHY_TYPE_CAP,
+  LIST_PAGE_SIZE,
+} from './data-loading';
 import { toast } from 'sonner';
-
-async function fetchAllPages<T>(
-  listPage: (skip: number, limit: number) => Promise<AxiosResponse<T[]>>,
-  pageSize = 500
-): Promise<AxiosResponse<T[]>> {
-  const all: T[] = [];
-  let skip = 0;
-
-  while (true) {
-    const response = await listPage(skip, pageSize);
-    const page = response.data ?? [];
-    all.push(...page);
-    if (page.length < pageSize) break;
-    skip += pageSize;
-  }
-
-  return { data: all } as AxiosResponse<T[]>;
-}
 
 interface DataStoreContextType {
   // Data
@@ -49,6 +37,9 @@ interface DataStoreContextType {
 
   // Loading states
   loading: boolean;
+  hierarchyLoading: boolean;
+  hierarchyReady: boolean;
+  hierarchyAttempted: boolean;
   error: string | null;
 
   // Users
@@ -168,11 +159,14 @@ interface DataStoreContextType {
 
   // Refresh
   refreshData: (options?: { silent?: boolean }) => Promise<void>;
+  refreshLightweight: () => Promise<void>;
+  ensureHierarchyLoaded: (options?: { force?: boolean }) => Promise<void>;
 }
 
 const DataStoreContext = createContext<DataStoreContextType | undefined>(undefined);
 
 export function DataStoreProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [users, setUsers] = useState<Models.User[]>([]);
   const [customers, setCustomers] = useState<Models.Customer[]>([]);
   const [orders, setOrders] = useState<Models.Order[]>([]);
@@ -191,7 +185,109 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
   const [maintenanceDeliveries, setMaintenanceDeliveries] = useState<MaintenanceTypes.MaintenanceDelivery[]>([]);
   const [configurationHistory, setconfigurationHistory] = useState<MaintenanceTypes.ConfigurationHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hierarchyLoading, setHierarchyLoading] = useState(false);
+  const [hierarchyReady, setHierarchyReady] = useState(false);
+  const [hierarchyAttempted, setHierarchyAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hierarchyLoadPromiseRef = useRef<Promise<void> | null>(null);
+
+  const applyEntityResults = useCallback(
+    (
+      statusList: Models.Status[],
+      results: {
+        systems: Models.System[];
+        subsystems: Models.Subsystem[];
+        modules: Models.Module[];
+        units: Models.Unit[];
+        components: Models.Component[];
+      }
+    ) => {
+      const enrich = <T extends { status_id: number }>(rows: T[]) =>
+        statusList.length > 0 ? enrichEntitiesWithStatus(rows, statusList) : rows;
+
+      setSystems(enrich(results.systems));
+      setSubsystems(enrich(results.subsystems));
+      setModules(enrich(results.modules));
+      setUnits(enrich(results.units));
+      setComponents(enrich(results.components));
+      setHierarchyReady(true);
+    },
+    []
+  );
+
+  const loadHierarchyData = useCallback(async () => {
+    const [systemsData, subsystemsData, modulesData, unitsData, componentsData] =
+      await Promise.all([
+        fetchCappedPages(api.systems.list, { maxItems: HIERARCHY_TYPE_CAP }),
+        fetchCappedPages(api.subsystems.list, { maxItems: HIERARCHY_TYPE_CAP }),
+        fetchCappedPages(api.modules.list, { maxItems: HIERARCHY_TYPE_CAP }),
+        fetchCappedPages(api.units.list, { maxItems: HIERARCHY_TYPE_CAP }),
+        fetchCappedPages(api.components.list, { maxItems: HIERARCHY_TYPE_CAP }),
+      ]);
+
+    const statusList = statuses.length > 0 ? statuses : (await api.statuses.list()).data ?? [];
+    applyEntityResults(statusList, {
+      systems: systemsData,
+      subsystems: subsystemsData,
+      modules: modulesData,
+      units: unitsData,
+      components: componentsData,
+    });
+  }, [applyEntityResults, statuses]);
+
+  const ensureHierarchyLoaded = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (hierarchyReady && !options?.force) return;
+      if (hierarchyLoadPromiseRef.current && !options?.force) {
+        await hierarchyLoadPromiseRef.current;
+        return;
+      }
+
+      const run = async () => {
+        setHierarchyLoading(true);
+        try {
+          await loadHierarchyData();
+        } catch (err) {
+          console.warn('Failed to load hierarchy data:', err);
+        } finally {
+          setHierarchyAttempted(true);
+          setHierarchyLoading(false);
+          hierarchyLoadPromiseRef.current = null;
+        }
+      };
+
+      hierarchyLoadPromiseRef.current = run();
+      await hierarchyLoadPromiseRef.current;
+    },
+    [hierarchyReady, loadHierarchyData]
+  );
+
+  const refreshLightweight = useCallback(async () => {
+    try {
+      const [maintenanceCasesRes, faultyEntitiesRes, projectsRes, customersRes] =
+        await Promise.allSettled([
+          api.maintenanceCases.list(0, LIST_PAGE_SIZE),
+          api.faultyEntities.list(0, LIST_PAGE_SIZE),
+          api.projects.list(0, LIST_PAGE_SIZE),
+          api.customers.list(0, LIST_PAGE_SIZE),
+        ]);
+
+      if (maintenanceCasesRes.status === 'fulfilled') {
+        setMaintenanceCases(maintenanceCasesRes.value.data);
+      }
+      if (faultyEntitiesRes.status === 'fulfilled') {
+        setFaultyEntities(faultyEntitiesRes.value.data);
+      }
+      if (projectsRes.status === 'fulfilled') {
+        setProjects(projectsRes.value.data);
+      }
+      if (customersRes.status === 'fulfilled') {
+        setCustomers(customersRes.value.data);
+      }
+    } catch (err) {
+      console.warn('Lightweight refresh failed:', err);
+    }
+  }, []);
 
   const refreshData = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -208,7 +304,6 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     };
 
     try {
-      // console.log('Refreshing data...');
       if (!silent) setLoading(true);
 
       const [
@@ -216,38 +311,21 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         customersRes,
         ordersRes,
         projectsRes,
-        systemsRes,
-        subsystemsRes,
-        modulesRes,
-        unitsRes,
-        componentsRes,
         inventoryRes,
         statusesRes,
         maintenanceLogsRes,
         maintenanceCasesRes,
         faultyEntitiesRes,
-        maintenanceActionsRes,
-        maintenanceDeliveriesRes,
-        configurationHistoryRes,
       ] = await Promise.allSettled([
-        api.users.list(0, 100),
-        api.customers.list(0, 100),
-        api.orders.list(0, 100),
-        api.projects.list(0, 100),
-        fetchAllPages(api.systems.list),
-        fetchAllPages(api.subsystems.list),
-        fetchAllPages(api.modules.list),
-        fetchAllPages(api.units.list),
-        fetchAllPages(api.components.list),
-        api.inventory.list(0, 100),
+        api.users.list(0, LIST_PAGE_SIZE),
+        api.customers.list(0, LIST_PAGE_SIZE),
+        api.orders.list(0, LIST_PAGE_SIZE),
+        api.projects.list(0, LIST_PAGE_SIZE),
+        api.inventory.list(0, LIST_PAGE_SIZE),
         api.statuses.list(),
-        api.maintenanceLogs.list(),
-        api.maintenanceCases.list(0, 100),
-        api.faultyEntities.list(0, 100),
-        api.maintenanceActions.list(),
-        api.maintenanceDeliveries.list(),
-        api.configurationHistory.list(),
-        
+        api.maintenanceLogs.list(0, LIST_PAGE_SIZE),
+        api.maintenanceCases.list(0, LIST_PAGE_SIZE),
+        api.faultyEntities.list(0, LIST_PAGE_SIZE),
       ]);
 
       setResult(usersRes, setUsers, 'users');
@@ -256,51 +334,32 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
       setResult(projectsRes, setProjects, 'projects');
       setResult(inventoryRes, setInventory, 'inventory');
       setResult(statusesRes, setStatuses, 'statuses');
-
-      const statusList =
-        statusesRes.status === 'fulfilled' ? statusesRes.value.data : [];
-
-      const setEntityResult = <T extends { status_id: number }>(
-        result: PromiseSettledResult<AxiosResponse<T[]>>,
-        setter: React.Dispatch<React.SetStateAction<T[]>>,
-        name: string
-      ) => {
-        if (result.status === 'fulfilled') {
-          const data =
-            statusList.length > 0
-              ? enrichEntitiesWithStatus(result.value.data, statusList)
-              : result.value.data;
-          setter(data);
-        } else {
-          console.warn(`Failed to refresh ${name}:`, result.reason);
-        }
-      };
-
-      setEntityResult(systemsRes, setSystems, 'systems');
-      setEntityResult(subsystemsRes, setSubsystems, 'subsystems');
-      setEntityResult(modulesRes, setModules, 'modules');
-      setEntityResult(unitsRes, setUnits, 'units');
-      setEntityResult(componentsRes, setComponents, 'components');
       setResult(maintenanceLogsRes, setMaintenanceLogs, 'maintenanceLogs');
       setResult(maintenanceCasesRes, setMaintenanceCases, 'maintenanceCases');
       setResult(faultyEntitiesRes, setFaultyEntities, 'faultyEntities');
-      setResult(maintenanceActionsRes, setMaintenanceActions, 'maintenanceActions');
-      setResult(maintenanceDeliveriesRes, setMaintenanceDeliveries, 'maintenanceDeliveries');
-      setResult(configurationHistoryRes, setconfigurationHistory, 'configurationHistory');
 
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load data';
       setError(message);
-      toast.error(message);
+      if (!silent) toast.error(message);
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+
+    // Hierarchy + heavy maintenance load in background — never block first paint.
+    if (!silent) {
+      void ensureHierarchyLoaded();
+    }
+  }, [ensureHierarchyLoaded]);
 
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+    void refreshData();
+  }, [isAuthenticated, refreshData]);
 
 
   // Users
@@ -1232,6 +1291,9 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     maintenanceDeliveries,
     configurationHistory,
     loading,
+    hierarchyLoading,
+    hierarchyReady,
+    hierarchyAttempted,
     error,
     getUser,
     createUser,
@@ -1314,6 +1376,8 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     updateConfigurationHistory,
     deleteConfigurationHistory,
     refreshData,
+    refreshLightweight,
+    ensureHierarchyLoaded,
   };
 
   return <DataStoreContext.Provider value={value}>{children}</DataStoreContext.Provider>;
