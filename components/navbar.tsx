@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Moon, Sun, Search, Wrench, AlertTriangle, CheckCircle2, Users, Rocket } from "lucide-react";
+import { Bell, Moon, Sun, Wrench, AlertTriangle, CheckCircle2, Users, Rocket } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import BackendAnimation from '@/components/backend-animation';
 import {
   Popover,
   PopoverContent,
@@ -16,6 +16,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppNotifications, type AppNotification } from "@/hooks/use-app-notifications";
 import { useNotificationSync } from "@/hooks/use-notification-sync";
 import { formatDistanceToNow } from "date-fns";
+import Image from "next/image";
+
+
+
 
 const TYPE_ICON: Record<AppNotification['type'], typeof Bell> = {
   open_maintenance_case: Wrench,
@@ -67,14 +71,17 @@ export function Navbar() {
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-      <div className="flex items-center gap-4 flex-1 max-w-md">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search projects, systems, inventory..."
-            className="pl-9 h-9 bg-muted/50 border-0 text-sm"
-          />
-        </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+        {/* <BackendAnimation /> */}
+        <Image
+          src="/lottie/System Icon.svg"
+          width={30}
+          height={30}
+          alt="Backend"
+        />
+        <p className="truncate font-bold text-zinc-500">
+          Product Life Cycle Management System
+        </p>
       </div>
 
       <div className="flex items-center gap-4">

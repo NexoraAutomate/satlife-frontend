@@ -21,6 +21,7 @@ import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
 import { HierarchyListDashboard } from '@/components/hierarchy/hierarchy-list-dashboard';
+import { ParentEntityLink } from '@/components/entity-link';
 import { buildHierarchyPageUrl } from '@/lib/hierarchy-page-filters';
 import {
   COMPONENTS_DASHBOARD_CONFIG,
@@ -373,7 +374,11 @@ export default function ComponentsPage() {
                   filtered.map((component) => {
                     const unit = units.find((u) => u.id === component.unit_id);
                     return (
-                      <TableRow key={component.id} onClick={() => router.push(`/components/${component.id}`)}>
+                      <TableRow
+                        key={component.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/components/${component.id}`)}
+                      >
                         <TableCell className="font-medium">
                           <EntityNameWithFault
                             name={component.name}
@@ -382,7 +387,16 @@ export default function ComponentsPage() {
                             faultMap={faultMap}
                           />
                         </TableCell>
-                        <TableCell>{unit?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          {unit ? (
+                            <ParentEntityLink
+                              href={`/units/${unit.id}`}
+                              label={unit.name}
+                            />
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={getStatusName(component)} />
                         </TableCell>
@@ -394,7 +408,7 @@ export default function ComponentsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Link href={`/components/${component.id}`}>
+                            <Link href={`/components/${component.id}`} onClick={(e) => e.stopPropagation()}>
                               <Button variant="outline" size="sm">
                                 View
                               </Button>

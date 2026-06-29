@@ -11,14 +11,30 @@ import type { GaugeMetric } from '@/lib/types/dashboard';
 
 interface GaugeChartCardProps {
   metric: GaugeMetric;
+  onClick?: () => void;
 }
 
-export function GaugeChartCard({ metric }: GaugeChartCardProps) {
+export function GaugeChartCard({ metric, onClick }: GaugeChartCardProps) {
   const pct = Math.min(100, Math.round((metric.value / metric.max_value) * 100));
   const chartData = [{ name: metric.label, value: pct, fill: 'oklch(0.62 0.15 250)' }];
 
   return (
-    <Card className="h-full">
+    <Card
+      className={`h-full ${onClick ? 'cursor-pointer transition-shadow hover:shadow-md' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">{metric.label}</CardTitle>
       </CardHeader>

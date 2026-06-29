@@ -80,47 +80,53 @@ export function EntityCards({
               <Card key={entity.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="pt-6">
                   <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate">{entity.name}</h3>
-                        {entity.description && (
-                          <p className="text-xs text-muted-foreground truncate mt-1">
-                            {entity.description}
-                          </p>
-                        )}
-                        {entity.installation_date ? (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Installed {new Date(entity.installation_date).toLocaleDateString()}
-                          </p>
-                        ) : null}
+                    <Link href={detailPath(entity.id)} className="block rounded-md transition-colors hover:bg-muted/30">
+                      <div className="space-y-3 p-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm truncate">{entity.name}</h3>
+                            {entity.description && (
+                              <p className="text-xs text-muted-foreground truncate mt-1">
+                                {entity.description}
+                              </p>
+                            )}
+                            {entity.installation_date ? (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Installed {new Date(entity.installation_date).toLocaleDateString()}
+                              </p>
+                            ) : null}
+                          </div>
+                          {entity.picture_url ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={entity.picture_url}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded object-cover border"
+                            />
+                          ) : null}
+                          <div className="flex shrink-0 items-center gap-1">
+                            {statusLabel !== 'Unknown' && (
+                              <StatusBadge status={statusLabel} />
+                            )}
+                            {childEntityType ? (
+                              <div onClick={(event) => event.preventDefault()}>
+                                <EntityStatusHistorySheet
+                                  entityType={childEntityType}
+                                  entityPk={entity.id}
+                                  entityName={entity.name}
+                                  statuses={statuses}
+                                  triggerVariant="icon"
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
-                      {entity.picture_url ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={entity.picture_url}
-                          alt=""
-                          className="h-10 w-10 shrink-0 rounded object-cover border"
-                        />
-                      ) : null}
-                      <div className="flex shrink-0 items-center gap-1">
-                        {statusLabel !== 'Unknown' && (
-                          <StatusBadge status={statusLabel} />
-                        )}
-                        {childEntityType ? (
-                          <EntityStatusHistorySheet
-                            entityType={childEntityType}
-                            entityPk={entity.id}
-                            entityName={entity.name}
-                            statuses={statuses}
-                            triggerVariant="icon"
-                          />
-                        ) : null}
-                      </div>
-                    </div>
+                    </Link>
 
                     <div className="space-y-2 pt-2">
                       <div className="flex gap-2">
-                        <Link href={detailPath(entity.id)} className="flex-1">
+                        <Link href={detailPath(entity.id)} className="flex-1" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" className="w-full gap-1.5">
                             View
                             <ArrowRight className="h-3 w-3" />
@@ -148,7 +154,7 @@ export function EntityCards({
                         </Button>
                       </div>
                       {secondaryPath ? (
-                        <Link href={secondaryPath(entity.id)}>
+                        <Link href={secondaryPath(entity.id)} onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" className="w-full gap-2">
                             <Network className="h-3 w-3" />
                             {secondaryButtonLabel}

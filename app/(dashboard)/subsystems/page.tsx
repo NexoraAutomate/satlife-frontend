@@ -21,6 +21,7 @@ import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
 import { HierarchyListDashboard } from '@/components/hierarchy/hierarchy-list-dashboard';
+import { ParentEntityLink } from '@/components/entity-link';
 import { buildHierarchyPageUrl } from '@/lib/hierarchy-page-filters';
 import {
   SUBSYSTEMS_DASHBOARD_CONFIG,
@@ -377,7 +378,11 @@ export default function SubsystemsPage() {
                   filtered.map((subsystem) => {
                     const system = systems.find((s) => s.id === subsystem.system_id);
                     return (
-                      <TableRow key={subsystem.id} onClick={() => router.push(`/subsystems/${subsystem.id}`)}>
+                      <TableRow
+                        key={subsystem.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/subsystems/${subsystem.id}`)}
+                      >
                         <TableCell className="font-medium">
                           <EntityNameWithFault
                             name={subsystem.name}
@@ -386,7 +391,16 @@ export default function SubsystemsPage() {
                             faultMap={faultMap}
                           />
                         </TableCell>
-                        <TableCell>{system?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          {system ? (
+                            <ParentEntityLink
+                              href={`/systems/${system.id}`}
+                              label={system.name}
+                            />
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={getStatusName(subsystem)} />
                         </TableCell>
@@ -398,7 +412,7 @@ export default function SubsystemsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Link href={`/subsystems/${subsystem.id}`}>
+                            <Link href={`/subsystems/${subsystem.id}`} onClick={(e) => e.stopPropagation()}>
                               <Button variant="outline" size="sm">
                                 View
                               </Button>

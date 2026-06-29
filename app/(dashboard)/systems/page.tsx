@@ -24,6 +24,7 @@ import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
 import { SystemsListDashboard } from '@/components/systems/systems-list-dashboard';
+import { ParentEntityLink } from '@/components/entity-link';
 
 
 
@@ -441,7 +442,11 @@ export default function SystemsPage() {
                   filtered.map((system) => {
                     const project = projects.find((p) => p.id === system.project_id);
                     return (
-                      <TableRow key={system.id} onClick={() => router.push(`/systems/${system.id}`)}>
+                      <TableRow
+                        key={system.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/systems/${system.id}`)}
+                      >
                         <TableCell className="font-medium">
                           <EntityNameWithFault
                             name={system.name}
@@ -450,7 +455,16 @@ export default function SystemsPage() {
                             faultMap={faultMap}
                           />
                         </TableCell>
-                        <TableCell>{project?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          {project ? (
+                            <ParentEntityLink
+                              href={`/projects/${project.id}`}
+                              label={project.name}
+                            />
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={getStatusName(system)} />
                         </TableCell>
@@ -468,7 +482,7 @@ export default function SystemsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Link href={`systems/${system.id}`}>
+                            <Link href={`/systems/${system.id}`} onClick={(e) => e.stopPropagation()}>
                               <Button variant="outline" size="sm">
                                 View
                               </Button>

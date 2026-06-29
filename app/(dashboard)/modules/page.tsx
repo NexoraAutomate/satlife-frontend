@@ -21,6 +21,7 @@ import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
 import { HierarchyListDashboard } from '@/components/hierarchy/hierarchy-list-dashboard';
+import { ParentEntityLink } from '@/components/entity-link';
 import { buildHierarchyPageUrl } from '@/lib/hierarchy-page-filters';
 import { MODULES_DASHBOARD_CONFIG, MODULE_STATUS_NAMES } from '@/lib/hierarchy-dashboard-configs';
 
@@ -371,7 +372,11 @@ export default function ModulesPage() {
                   filtered.map((module) => {
                     const subsystem = subsystems.find((s) => s.id === module.subsystem_id);
                     return (
-                      <TableRow key={module.id} onClick={() => router.push(`/modules/${module.id}`)}>
+                      <TableRow
+                        key={module.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/modules/${module.id}`)}
+                      >
                         <TableCell className="font-medium">
                           <EntityNameWithFault
                             name={module.name}
@@ -380,7 +385,16 @@ export default function ModulesPage() {
                             faultMap={faultMap}
                           />
                         </TableCell>
-                        <TableCell>{subsystem?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          {subsystem ? (
+                            <ParentEntityLink
+                              href={`/subsystems/${subsystem.id}`}
+                              label={subsystem.name}
+                            />
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={getStatusName(module)} />
                         </TableCell>
@@ -392,7 +406,7 @@ export default function ModulesPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Link href={`/modules/${module.id}`}>
+                            <Link href={`/modules/${module.id}`} onClick={(e) => e.stopPropagation()}>
                               <Button variant="outline" size="sm">
                                 View
                               </Button>

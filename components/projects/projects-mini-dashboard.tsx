@@ -196,12 +196,14 @@ export function ProjectsMiniDashboard({
           value={totalSystems}
           sub="Across shown projects"
           icon={Layers}
+          onClick={() => router.push('/systems')}
         />
         <KpiTile
           label="Avg Progress"
           value={`${avgProgress}%`}
           sub={`${completedCount} completed`}
           icon={TrendingUp}
+          onClick={() => router.push('/projects')}
         />
         <KpiTile
           label="Completed"

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   LayoutDashboard,
   BarChart3,
@@ -173,8 +174,15 @@ export function AppSidebar() {
             collapsed ? "justify-center px-2" : "gap-3 px-4 pt-5"
           )}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Satellite className="h-5 w-5 text-sidebar-primary-foreground" />
+          <div className="flex h-9 w-9 shrink-0 text-blue-500 items-center justify-center">
+          <Image
+              src="/SSDLS.svg"
+              width={30}
+              height={30}
+              alt="Backend"
+              className="invert"
+            />
+            {/* <Satellite className="h-5 w-5 text-sidebar-primary-foreground" /> */}
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1 pr-6">

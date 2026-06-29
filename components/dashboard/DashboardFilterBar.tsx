@@ -21,6 +21,7 @@ interface DashboardFilterBarProps {
   projectStatuses: Status[];
   onChange: (patch: Partial<ExecutiveDashboardFilters>) => void;
   onClear: () => void;
+  onSearchOpen?: () => void;
 }
 
 const MAINTENANCE_STATUSES = [
@@ -41,6 +42,7 @@ export function DashboardFilterBar({
   projectStatuses,
   onChange,
   onClear,
+  onSearchOpen,
 }: DashboardFilterBarProps) {
   const filteredOrders = filters.customer_id
     ? orders.filter((o) => o.customer_id === filters.customer_id)
@@ -186,7 +188,7 @@ export function DashboardFilterBar({
           </SelectContent>
         </Select>
 
-        <Input
+        {/* <Input
           type="date"
           value={filters.date_from?.slice(0, 10) ?? ''}
           onChange={(e) =>
@@ -202,15 +204,22 @@ export function DashboardFilterBar({
             onChange({ date_to: e.target.value ? `${e.target.value}T23:59:59` : undefined })
           }
           placeholder="To date"
-        />
+        /> */}
 
         <div className="relative sm:col-span-2 lg:col-span-1 xl:col-span-2">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9"
+            readOnly
+            className="cursor-pointer pl-9"
             placeholder="Search customers, projects, cases..."
-            value={filters.search ?? ''}
-            onChange={(e) => onChange({ search: e.target.value || undefined })}
+            onFocus={() => onSearchOpen?.()}
+            onClick={() => onSearchOpen?.()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onSearchOpen?.();
+              }
+            }}
           />
         </div>
       </div>

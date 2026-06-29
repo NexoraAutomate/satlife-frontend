@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Users,
@@ -29,11 +29,15 @@ import { TreemapChartCard } from '@/components/dashboard/TreemapChartCard';
 import { GaugeChartCard } from '@/components/dashboard/GaugeChartCard';
 import { RecentActivityTable } from '@/components/dashboard/RecentActivityTable';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { GlobalSearchDialog } from '@/components/global-search-dialog';
 import { Button } from '@/components/ui/button';
 import {
   activityLink,
+  kpiRoute,
   maintenanceStatusLink,
+  projectLinkByName,
   projectStatusLink,
+  resourceBarLink,
   treemapLink,
 } from '@/lib/dashboard-navigation';
 import type { KpiMetric } from '@/lib/types/dashboard';
@@ -56,16 +60,15 @@ const KPI_META: Record<
 
 export default function ExecutiveDashboardPage() {
   const router = useRouter();
-  const { customers, orders, projects, statuses, loading: storeLoading } = useDataStore();
+  const { customers, orders, projects, users, statuses, loading: storeLoading } = useDataStore();
+  const [searchOpen, setSearchOpen] = useState(false);
   const {
     data,
     loading,
     error,
     filters,
-    kpiFilter,
     updateFilters,
     clearFilters,
-    selectKpi,
     refetch,
     isSectionHighlighted,
   } = useExecutiveDashboard();
@@ -73,6 +76,11 @@ export default function ExecutiveDashboardPage() {
   const projectStatuses = useMemo(
     () => statuses.filter((s) => s.status_type === 'project'),
     [statuses]
+  );
+
+  const resourceContext = useMemo(
+    () => ({ customers, orders, projects, users }),
+    [customers, orders, projects, users]
   );
 
   if (storeLoading || (loading && !data)) {
@@ -109,7 +117,10 @@ export default function ExecutiveDashboardPage() {
         projectStatuses={projectStatuses}
         onChange={updateFilters}
         onClear={clearFilters}
+        onSearchOpen={() => setSearchOpen(true)}
       />
+
+      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       {error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
@@ -121,8 +132,7 @@ export default function ExecutiveDashboardPage() {
         </div>
       ) : null}
 
-      {/* Row 1 — KPIs */}
-      <DashboardSection title="Key Performance Indicators" description="Click a KPI to highlight related sections">
+      <DashboardSection title="Key Performance Indicators" description="Click a KPI to open the related list">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {kpis.map((metric: KpiMetric) => {
             const meta = KPI_META[metric.key] ?? { icon: Rocket, accent: 'blue' as const };
@@ -134,15 +144,13 @@ export default function ExecutiveDashboardPage() {
                 changePercent={metric.change_percent}
                 icon={meta.icon}
                 accentColor={meta.accent}
-                isSelected={kpiFilter === metric.key}
-                onClick={() => selectKpi(metric.key)}
+                onClick={() => router.push(kpiRoute(metric.key))}
               />
             );
           })}
         </div>
       </DashboardSection>
 
-      {/* Row 2 — Projects */}
       <DashboardSection
         title="Project Analytics"
         description="Status distribution, creation timeline, and progress by status weight"
@@ -157,6 +165,7 @@ export default function ExecutiveDashboardPage() {
           <AreaChartCard
             title="Projects Created (Monthly)"
             data={data?.projects.timeline ?? []}
+            onClick={() => router.push('/projects')}
           />
           <HorizontalBarChartCard
             title="Project Progress"
@@ -169,7 +178,6 @@ export default function ExecutiveDashboardPage() {
         </div>
       </DashboardSection>
 
-      {/* Row 3 — Maintenance */}
       <DashboardSection
         title="Maintenance Analytics"
         description="Case status, fault distribution, and monthly trend"
@@ -183,18 +191,20 @@ export default function ExecutiveDashboardPage() {
           />
           <BarChartCard
             title="Faults by Project"
-            data={
-              data?.maintenance.fault_by_project[0]?.series[0]?.data ?? []
-            }
+            data={data?.maintenance.fault_by_project[0]?.series[0]?.data ?? []}
+            onBarClick={(item) => {
+              const href = projectLinkByName(item.name, projects);
+              router.push(href ?? '/projects');
+            }}
           />
           <LineChartCard
             title="Cases Opened (Monthly)"
             data={data?.maintenance.monthly_trend ?? []}
+            onClick={() => router.push('/maintenance')}
           />
         </div>
       </DashboardSection>
 
-      {/* Row 4 — Product Structure */}
       <DashboardSection
         title="Product Structure"
         description="Customer → Order → Project hierarchy"
@@ -207,7 +217,6 @@ export default function ExecutiveDashboardPage() {
         />
       </DashboardSection>
 
-      {/* Row 5 — Configuration */}
       <DashboardSection
         title="Configuration Analytics"
         description="Change volume, top modified components, recent timeline"
@@ -217,10 +226,12 @@ export default function ExecutiveDashboardPage() {
           <BarChartCard
             title="Config Changes by Month"
             data={data?.configuration.changes_by_month ?? []}
+            onBarClick={() => router.push('/maintenance')}
           />
           <HorizontalBarChartCard
             title="Top Modified Components"
             data={data?.configuration.top_modified_components ?? []}
+            onBarClick={() => router.push('/components')}
           />
           <RecentActivityTable
             title="Recent Config Changes"
@@ -230,7 +241,6 @@ export default function ExecutiveDashboardPage() {
         </div>
       </DashboardSection>
 
-      {/* Row 6 — Reliability */}
       <DashboardSection
         title="Reliability Metrics"
         description="Fault patterns, MTTR, and MTBF"
@@ -240,21 +250,28 @@ export default function ExecutiveDashboardPage() {
           <BarChartCard
             title="Top Faulty Components"
             data={data?.reliability.top_faulty_components ?? []}
+            onBarClick={() => router.push('/maintenance')}
           />
           <DonutChartCard
             title="Faults by Type"
             data={data?.reliability.fault_type_distribution ?? []}
+            onSliceClick={() => router.push('/maintenance')}
           />
           {data?.reliability.mttr ? (
-            <GaugeChartCard metric={data.reliability.mttr} />
+            <GaugeChartCard
+              metric={data.reliability.mttr}
+              onClick={() => router.push('/maintenance')}
+            />
           ) : null}
           {data?.reliability.mtbf ? (
-            <GaugeChartCard metric={data.reliability.mtbf} />
+            <GaugeChartCard
+              metric={data.reliability.mtbf}
+              onClick={() => router.push('/maintenance')}
+            />
           ) : null}
         </div>
       </DashboardSection>
 
-      {/* Row 7 — Resources */}
       <DashboardSection
         title="Resource Allocation"
         description="Projects by owner, customer, and order"
@@ -264,19 +281,27 @@ export default function ExecutiveDashboardPage() {
           <BarChartCard
             title="Projects by Owner"
             data={data?.resources.projects_by_owner ?? []}
+            onBarClick={(item) =>
+              router.push(resourceBarLink('Projects by Owner', item, resourceContext))
+            }
           />
           <BarChartCard
             title="Projects by Customer"
             data={data?.resources.projects_by_customer ?? []}
+            onBarClick={(item) =>
+              router.push(resourceBarLink('Projects by Customer', item, resourceContext))
+            }
           />
           <BarChartCard
             title="Projects by Order"
             data={data?.resources.projects_by_order ?? []}
+            onBarClick={(item) =>
+              router.push(resourceBarLink('Projects by Order', item, resourceContext))
+            }
           />
         </div>
       </DashboardSection>
 
-      {/* Row 8 — Activities */}
       <DashboardSection
         title="Recent Activities"
         description="Latest cases, config changes, projects, and user actions"

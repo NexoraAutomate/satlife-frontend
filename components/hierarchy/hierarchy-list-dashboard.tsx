@@ -40,12 +40,15 @@ export interface HierarchyListDashboardConfig {
   parentDetailRoute: (id: number) => string;
 }
 
-interface HierarchyListDashboardProps<T extends { id: number; name: string; created_at?: string }> {
+interface HierarchyListDashboardProps<
+  T extends { id: number; name: string; created_at?: string },
+  C extends { id: number },
+> {
   config: HierarchyListDashboardConfig;
   items: T[];
   parents: Array<{ id: number; name: string }>;
-  children: Array<{ id: number }>;
-  getChildParentId: (child: { id: number }) => number | undefined;
+  children: C[];
+  getChildParentId: (child: C) => number | undefined;
   getStatusName: (item: T) => string;
   getParentId: (item: T) => number | undefined;
   faultMap: Map<string, FaultyEntityStatus>;
@@ -98,7 +101,10 @@ function truncateLabel(name: string, max = 14): string {
   return name.length > max ? `${name.slice(0, max - 2)}…` : name;
 }
 
-export function HierarchyListDashboard<T extends { id: number; name: string; created_at?: string }>({
+export function HierarchyListDashboard<
+  T extends { id: number; name: string; created_at?: string },
+  C extends { id: number },
+>({
   config,
   items,
   parents,
@@ -111,7 +117,7 @@ export function HierarchyListDashboard<T extends { id: number; name: string; cre
   activeParentId,
   onStatusFilter,
   onParentFilter,
-}: HierarchyListDashboardProps<T>) {
+}: HierarchyListDashboardProps<T, C>) {
   const router = useRouter();
   const [activeChart, setActiveChart] = useState<'status' | 'parent' | 'hierarchy' | 'timeline'>(
     'status'

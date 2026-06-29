@@ -16,11 +16,27 @@ import { DashboardEmptyState } from './DashboardEmptyState';
 interface AreaChartCardProps {
   title: string;
   data: ChartDataPoint[];
+  onClick?: () => void;
 }
 
-export function AreaChartCard({ title, data }: AreaChartCardProps) {
+export function AreaChartCard({ title, data, onClick }: AreaChartCardProps) {
   return (
-    <Card className="h-full">
+    <Card
+      className={`h-full ${onClick ? 'cursor-pointer transition-shadow hover:shadow-md' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
       </CardHeader>

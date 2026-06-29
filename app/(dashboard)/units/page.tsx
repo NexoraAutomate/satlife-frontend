@@ -21,6 +21,7 @@ import { EntityCountCell } from '@/components/entity-count-cell';
 import { EntityNameWithFault } from '@/components/entity-fault-ping';
 import { useEntityFaultMap } from '@/hooks/use-entity-fault-map';
 import { HierarchyListDashboard } from '@/components/hierarchy/hierarchy-list-dashboard';
+import { ParentEntityLink } from '@/components/entity-link';
 import { buildHierarchyPageUrl } from '@/lib/hierarchy-page-filters';
 import { UNITS_DASHBOARD_CONFIG, UNIT_STATUS_NAMES } from '@/lib/hierarchy-dashboard-configs';
 
@@ -354,7 +355,11 @@ export default function UnitsPage() {
                   filtered.map((unit) => {
                     const module = modules.find((m) => m.id === unit.module_id);
                     return (
-                      <TableRow key={unit.id} onClick={() => router.push(`/units/${unit.id}`)}>
+                      <TableRow
+                        key={unit.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/units/${unit.id}`)}
+                      >
                         <TableCell className="font-medium">
                           <EntityNameWithFault
                             name={unit.name}
@@ -363,7 +368,16 @@ export default function UnitsPage() {
                             faultMap={faultMap}
                           />
                         </TableCell>
-                        <TableCell>{module?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          {module ? (
+                            <ParentEntityLink
+                              href={`/modules/${module.id}`}
+                              label={module.name}
+                            />
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={getStatusName(unit)} />
                         </TableCell>
@@ -375,7 +389,7 @@ export default function UnitsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Link href={`/units/${unit.id}`}>
+                            <Link href={`/units/${unit.id}`} onClick={(e) => e.stopPropagation()}>
                               <Button variant="outline" size="sm">
                                 View
                               </Button>

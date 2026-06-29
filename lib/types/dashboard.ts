@@ -123,7 +123,6 @@ export interface ExecutiveDashboardFilters {
   project_status?: string;
   maintenance_status?: string;
   configuration_status?: string;
-  search?: string;
   kpi_filter?: string;
 }
 

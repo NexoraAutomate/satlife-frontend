@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Edit, Trash2, Search, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import * as api from '@/lib/api';
@@ -368,7 +369,11 @@ export default function ProjectsPage(){
                     const owner = users.find((u) => u.id === project.owner_id);
                     const status = statuses.find((s) => s.id === project.status_id);
                     return (
-                      <TableRow key={project.id}   onClick={() => router.push(`/projects/${project.id}`)}>
+                      <TableRow
+                        key={project.id}
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                      >
                         <TableCell className="font-medium">
                           <EntityNameWithFault
                             name={project.name}
@@ -404,6 +409,11 @@ export default function ProjectsPage(){
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
+                            <Link href={`/projects/${project.id}`} onClick={(e) => e.stopPropagation()}>
+                              <Button variant="outline" size="sm">
+                                View
+                              </Button>
+                            </Link>
                             <button
                               type="button"
                               className="rounded p-1 hover:bg-muted"
@@ -426,7 +436,6 @@ export default function ProjectsPage(){
                             </button>
                           </div>
                         </TableCell>
-                        {/* <Link href={`/projects/${project.id}`} className="absolute inset-0" /> */}
                       </TableRow>
                     );
                   })
